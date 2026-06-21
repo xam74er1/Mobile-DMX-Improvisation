@@ -21,7 +21,8 @@ export interface AmbianceEffect {
   repeat: boolean
   durationMs: number      // for smooth effects and total period override
   maxIntensity: number    // 0–100
-  toColor?: RGBW          // for color_transition
+  toColor?: RGBW          // for color_transition end color
+  fromColor?: RGBW        // for color_transition start color (overrides preset default)
 }
 
 interface SlotConfig {
@@ -79,7 +80,7 @@ class EffectsRunner {
         periodFrames,
         flashFrames,
         totalFrames,
-        color: preset.color,
+        color: effect.fromColor ?? preset.color,
         colorB: preset.colorB,
         maxIntensity: effect.maxIntensity,
         toColor: effect.toColor ?? preset.defaultToColor,

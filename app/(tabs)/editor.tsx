@@ -264,61 +264,84 @@ export default function EditorScreen() {
           {editingEffect && (
             <Dialog.ScrollArea style={styles.effectScrollArea}>
               <ScrollView>
-                {/* Preset picker */}
+                {/* ── Preset picker (wrapped, not horizontal scroll) ── */}
                 <Text style={styles.dialogLabel}>Effect Type</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.presetPickerRow}>
-                  {EFFECT_PRESETS.map((p) => (
-                    <Pressable key={p.id}
-                      onPress={() => {
-                        setEditingEffect({
-                          ...editingEffect,
-                          presetId: p.id,
-                          bpm: p.defaultBpm,
-                          durationMs: p.defaultDurationMs,
-                          repeat: p.defaultRepeat,
-                          toColor: p.defaultToColor,
-                        })
-                      }}
-                      style={[styles.presetPickBtn, editingEffect.presetId === p.id && styles.presetPickBtnActive]}>
-                      <MaterialIcons name={p.icon as any} size={20}
-                        color={editingEffect.presetId === p.id ? '#fff' : '#aaa'} />
-                      <Text style={[styles.presetPickName, editingEffect.presetId === p.id && { color: '#fff' }]}>
-                        {p.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                <View style={styles.presetPickerWrap}>
+                  {EFFECT_PRESETS.map((p) => {
+                    const isActive = editingEffect.presetId === p.id
+                    return (
+                      <Pressable key={p.id}
+                        onPress={() =>
+                          setEditingEffect({
+                            ...editingEffect,
+                            presetId: p.id,
+                            bpm: p.defaultBpm,
+                            durationMs: p.defaultDurationMs,
+                            repeat: p.defaultRepeat,
+                            toColor: p.defaultToColor,
+                            fromColor: undefined,
+                          })
+                        }
+                        style={[styles.presetPickBtn, isActive && styles.presetPickBtnActive]}
+                      >
+                        <MaterialIcons name={p.icon as any} size={18} color={isActive ? '#fff' : '#aaa'} />
+                        <Text style={[styles.presetPickName, isActive && { color: '#fff' }]}>{p.name}</Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
 
-                {/* Target lights */}
-                <Text style={[styles.dialogLabel, { marginTop: 12 }]}>Target Lights</Text>
-                <Pressable style={styles.allToggleRow}
-                  onPress={() => setEditingEffect({ ...editingEffect, targetLightIds: 'all' })}>
+                {/* ── Target lights ── */}
+                <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Target Lights</Text>
+
+                {/* "All Lights" master toggle */}
+                <Pressable
+                  style={styles.allToggleRow}
+                  onPress={() => {
+                    if (editingEffect.targetLightIds === 'all') {
+                      // Switch to individual mode — start with ALL selected
+                      setEditingEffect({ ...editingEffect, targetLightIds: lights.map((l) => l.id) })
+                    } else {
+                      setEditingEffect({ ...editingEffect, targetLightIds: 'all' })
+                    }
+                  }}
+                >
                   <Checkbox
                     status={editingEffect.targetLightIds === 'all' ? 'checked' : 'unchecked'}
                     color="#ff6b35"
                   />
                   <Text style={styles.allToggleLabel}>All Lights</Text>
                 </Pressable>
-                {editingEffect.targetLightIds !== 'all' && lights.map((light) => {
-                  const ids = editingEffect.targetLightIds as string[]
+
+                {/* Individual lights — always visible; tapping deselects when "all" */}
+                {lights.map((light) => {
+                  const isAll = editingEffect.targetLightIds === 'all'
+                  const ids = isAll ? lights.map((l) => l.id) : (editingEffect.targetLightIds as string[])
                   const checked = ids.includes(light.id)
                   return (
-                    <Pressable key={light.id} style={styles.allToggleRow}
+                    <Pressable
+                      key={light.id}
+                      style={[styles.allToggleRow, { paddingLeft: 16 }]}
                       onPress={() => {
-                        const newIds = checked ? ids.filter(id => id !== light.id) : [...ids, light.id]
-                        setEditingEffect({ ...editingEffect, targetLightIds: newIds })
-                      }}>
+                        if (isAll) {
+                          // Deselect just this one, switch to individual mode
+                          setEditingEffect({
+                            ...editingEffect,
+                            targetLightIds: lights.filter((l) => l.id !== light.id).map((l) => l.id),
+                          })
+                        } else {
+                          const newIds = checked
+                            ? (editingEffect.targetLightIds as string[]).filter((id) => id !== light.id)
+                            : [...(editingEffect.targetLightIds as string[]), light.id]
+                          setEditingEffect({ ...editingEffect, targetLightIds: newIds })
+                        }
+                      }}
+                    >
                       <Checkbox status={checked ? 'checked' : 'unchecked'} color="#ff6b35" />
                       <Text style={styles.allToggleLabel}>{light.name}</Text>
                     </Pressable>
                   )
                 })}
-                {editingEffect.targetLightIds === 'all' && (
-                  <Button mode="text" compact onPress={() => {
-                    setEditingEffect({ ...editingEffect, targetLightIds: lights.map(l => l.id) })
-                  }}>Pick specific lights instead</Button>
-                )}
 
                 {/* BPM or Duration param */}
                 {(() => {
@@ -364,22 +387,33 @@ export default function EditorScreen() {
                   minimumTrackTintColor="#ff6b35" maximumTrackTintColor="#333" thumbTintColor="#ff6b35"
                   style={styles.slider} />
 
-                {/* Color transition: target color swatches */}
+                {/* Color transition: from + to color swatches */}
                 {EFFECT_PRESET_MAP[editingEffect.presetId]?.kind === 'color_transition' && (
                   <>
-                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Fade To Color</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.colorSwatchRow}>
+                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>From Color</Text>
+                    <View style={styles.colorSwatchRow}>
+                      {DEFAULT_COLORS.map((c) => {
+                        const fc = editingEffect.fromColor ?? EFFECT_PRESET_MAP[editingEffect.presetId]?.color
+                        const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
+                        return (
+                          <Pressable key={`from-${c.hex}`}
+                            onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                            style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                        )
+                      })}
+                    </View>
+                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>To Color</Text>
+                    <View style={styles.colorSwatchRow}>
                       {DEFAULT_COLORS.map((c) => {
                         const tc = editingEffect.toColor
                         const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
                         return (
-                          <Pressable key={c.hex}
+                          <Pressable key={`to-${c.hex}`}
                             onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
                             style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                         )
                       })}
-                    </ScrollView>
+                    </View>
                   </>
                 )}
 
@@ -454,16 +488,17 @@ const styles = StyleSheet.create({
   effectRowMeta: { fontSize: 10, color: '#666', marginTop: 2 },
 
   // Effect dialog
-  effectScrollArea: { maxHeight: 480 },
+  effectScrollArea: { maxHeight: 500 },
   dialogLabel: { fontSize: 12, color: '#888', marginBottom: 4, marginTop: 4 },
-  presetPickerRow: { gap: 8, paddingVertical: 4 },
-  presetPickBtn: { width: 76, alignItems: 'center', backgroundColor: '#1a1a1a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 4, gap: 4, borderWidth: 1, borderColor: '#2a2a2a' },
+  // Presets wrap to multiple lines instead of horizontal scroll
+  presetPickerWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
+  presetPickBtn: { width: 74, alignItems: 'center', backgroundColor: '#1a1a1a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 4, gap: 4, borderWidth: 1, borderColor: '#2a2a2a' },
   presetPickBtnActive: { backgroundColor: '#ff6b35', borderColor: '#ff6b35' },
   presetPickName: { fontSize: 9, fontWeight: '700', color: '#aaa', textAlign: 'center' },
-  allToggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  allToggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3 },
   allToggleLabel: { fontSize: 14, color: '#ccc', marginLeft: 4 },
   slider: { width: '100%', height: 36 },
-  colorSwatchRow: { gap: 8, paddingVertical: 4 },
+  colorSwatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
   colorSwatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: 'transparent' },
   colorSwatchSel: { borderColor: '#fff' },
 })

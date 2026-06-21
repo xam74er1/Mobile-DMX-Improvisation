@@ -1,37 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native'
-import { Text, Switch, Divider } from 'react-native-paper'
+import { Text, Switch } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import Slider from '@react-native-community/slider'
 import { EFFECT_PRESETS } from '../effects/presets'
-import { effectsRunner } from '../effects/runner'
+import { effectsRunner, type AmbianceEffect } from '../effects/runner'
+
+// Global slot IDs are prefixed so they don't clash with ambiance effect IDs
+const GLOBAL_PREFIX = 'global-'
 
 export function EffectsBar() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [bpm, setBpm] = useState(120)
   const [repeat, setRepeat] = useState(true)
-  // Poll runner state (runner is not a Zustand store)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Poll runner state — runner is not a Zustand store so we poll it
   useEffect(() => {
     tickRef.current = setInterval(() => {
-      setActiveId(effectsRunner.activeId)
+      const running = EFFECT_PRESETS.find((p) =>
+        effectsRunner.isSlotRunning(`${GLOBAL_PREFIX}${p.id}`),
+      )
+      setActiveId(running?.id ?? null)
     }, 150)
     return () => {
       if (tickRef.current) clearInterval(tickRef.current)
     }
   }, [])
 
-  function handlePress(id: string) {
-    const preset = EFFECT_PRESETS.find((p) => p.id === id)!
-    if (activeId === id) {
-      effectsRunner.stop()
+  function handlePress(presetId: string) {
+    const slotId = `${GLOBAL_PREFIX}${presetId}`
+    if (effectsRunner.isSlotRunning(slotId)) {
+      effectsRunner.stopSlot(slotId)
       setActiveId(null)
-    } else {
-      const effectiveBpm = preset.bpmScaled ? bpm : preset.defaultBpm
-      effectsRunner.start(preset, effectiveBpm, preset.defaultRepeat ? repeat : false)
-      setActiveId(id)
+      return
     }
+
+    const preset = EFFECT_PRESETS.find((p) => p.id === presetId)!
+    const effect: AmbianceEffect = {
+      id: slotId,
+      presetId,
+      targetLightIds: 'all',
+      bpm: preset.bpmScaled ? bpm : preset.defaultBpm,
+      repeat: preset.defaultRepeat ? repeat : false,
+      durationMs: preset.defaultDurationMs,
+      maxIntensity: 100,
+    }
+    effectsRunner.startSlot(effect)
+    setActiveId(presetId)
   }
 
   const selectedPreset = EFFECT_PRESETS.find((p) => p.id === activeId)
@@ -41,15 +57,25 @@ export function EffectsBar() {
       <View style={styles.header}>
         <Text style={styles.title}>EFFECTS</Text>
         {activeId && (
-          <Pressable onPress={() => { effectsRunner.stop(); setActiveId(null) }} style={styles.stopBtn}>
+          <Pressable
+            onPress={() => {
+              effectsRunner.stopSlot(`${GLOBAL_PREFIX}${activeId}`)
+              setActiveId(null)
+            }}
+            style={styles.stopBtn}
+          >
             <MaterialIcons name="stop" size={14} color="#fff" />
             <Text style={styles.stopBtnText}>STOP</Text>
           </Pressable>
         )}
       </View>
 
-      {/* Preset buttons */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
+      {/* Preset buttons — horizontal scroll */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.presetRow}
+      >
         {EFFECT_PRESETS.map((preset) => {
           const isActive = activeId === preset.id
           return (
@@ -66,9 +92,6 @@ export function EffectsBar() {
               <Text style={[styles.presetName, isActive && styles.presetNameActive]}>
                 {preset.name}
               </Text>
-              <Text style={styles.presetDesc} numberOfLines={1}>
-                {preset.description.split(' — ')[0]}
-              </Text>
             </Pressable>
           )
         })}
@@ -76,13 +99,11 @@ export function EffectsBar() {
 
       {/* Controls */}
       <View style={styles.controls}>
-        {/* Repeat toggle */}
         <View style={styles.repeatRow}>
           <Text style={styles.controlLabel}>Repeat</Text>
           <Switch value={repeat} onValueChange={setRepeat} color="#ff6b35" />
         </View>
 
-        {/* BPM slider — only show for BPM-scaled presets or when nothing selected */}
         {(!selectedPreset || selectedPreset.bpmScaled) && (
           <View style={styles.bpmRow}>
             <Text style={styles.controlLabel}>BPM</Text>
@@ -120,88 +141,26 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 6,
   },
-  title: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#555',
-    letterSpacing: 1.5,
-  },
+  title: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5 },
   stopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#e74c3c', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6,
   },
-  stopBtnText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  presetRow: {
-    paddingHorizontal: 12,
-    gap: 8,
-    paddingBottom: 8,
-  },
+  stopBtnText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  presetRow: { paddingHorizontal: 12, gap: 8, paddingBottom: 8 },
   presetBtn: {
-    width: 82,
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    gap: 4,
+    width: 76, alignItems: 'center',
+    backgroundColor: '#1a1a1a', borderRadius: 12,
+    paddingVertical: 10, paddingHorizontal: 6,
+    borderWidth: 1, borderColor: '#2a2a2a', gap: 4,
   },
-  presetBtnActive: {
-    backgroundColor: '#ff6b35',
-    borderColor: '#ff6b35',
-  },
-  presetName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ccc',
-    textAlign: 'center',
-  },
-  presetNameActive: {
-    color: '#fff',
-  },
-  presetDesc: {
-    fontSize: 8,
-    color: '#666',
-    textAlign: 'center',
-  },
-  controls: {
-    paddingHorizontal: 16,
-    gap: 4,
-  },
-  repeatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  controlLabel: {
-    fontSize: 12,
-    color: '#888',
-  },
-  bpmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  bpmValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#ff6b35',
-    width: 38,
-    textAlign: 'right',
-  },
-  bpmSlider: {
-    flex: 1,
-    height: 36,
-  },
+  presetBtnActive: { backgroundColor: '#ff6b35', borderColor: '#ff6b35' },
+  presetName: { fontSize: 10, fontWeight: '700', color: '#ccc', textAlign: 'center' },
+  presetNameActive: { color: '#fff' },
+  controls: { paddingHorizontal: 16, gap: 4 },
+  repeatRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  controlLabel: { fontSize: 12, color: '#888' },
+  bpmRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bpmValue: { fontSize: 13, fontWeight: '700', color: '#ff6b35', width: 38, textAlign: 'right' },
+  bpmSlider: { flex: 1, height: 36 },
 })
