@@ -5,8 +5,10 @@ import {
   SegmentedButtons, Menu,
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { SceneStage } from '../../src/components/SceneStage'
 import { useLightsStore, type Light } from '../../src/store/lightsStore'
 import { useSettingsStore } from '../../src/store/settingsStore'
+import { useAmbiancesStore } from '../../src/store/ambiancesStore'
 import { dmxService } from '../../src/dmx'
 import { CHANNEL_MODE_OPTIONS, type ChannelMode } from '../../src/constants/channelModes'
 
@@ -23,7 +25,7 @@ export default function SettingsScreen() {
           onValueChange={(v) => setTab(v as Tab)}
           buttons={[
             { value: 'connection', label: 'Connection', icon: 'wifi' },
-            { value: 'lights', label: 'Lights', icon: 'lightbulb-outline' },
+            { value: 'lights', label: 'Lights / Scene', icon: 'lightbulb-outline' },
           ]}
           style={styles.segmented}
         />
@@ -34,9 +36,9 @@ export default function SettingsScreen() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // CONNECTION TAB
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 function ConnectionTab() {
   const receiverIp = useSettingsStore((s) => s.receiverIp)
   const receiverPort = useSettingsStore((s) => s.receiverPort)
@@ -44,14 +46,13 @@ function ConnectionTab() {
   const setReceiverIp = useSettingsStore((s) => s.setReceiverIp)
   const setReceiverPort = useSettingsStore((s) => s.setReceiverPort)
   const setUniverse = useSettingsStore((s) => s.setUniverse)
+  const lights = useLightsStore((s) => s.lights)
 
   const [ipInput, setIpInput] = useState(receiverIp)
   const [portInput, setPortInput] = useState(String(receiverPort))
   const [universeInput, setUniverseInput] = useState(String(universe))
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<'none' | 'ok' | 'fail'>('none')
-
-  const lights = useLightsStore((s) => s.lights)
 
   function commitIp() { setReceiverIp(ipInput.trim() || receiverIp) }
   function commitPort() {
@@ -73,8 +74,9 @@ function ConnectionTab() {
         id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
       }))
       const allOn: Record<string, { r: number; g: number; b: number; w: number; intensity: number; isOn: boolean }> = {}
-      for (const f of fixtures) allOn[f.id] = { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true }
-
+      for (const f of fixtures) {
+        allOn[f.id] = { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true }
+      }
       await dmxService.sync(fixtures, allOn, false, receiverIp, receiverPort, universe)
       await delay(500)
       await dmxService.sync(fixtures, allOn, true, receiverIp, receiverPort, universe)
@@ -94,7 +96,9 @@ function ConnectionTab() {
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
       <Text style={styles.sectionTitle}>DMX RECEIVER</Text>
-      <Text style={styles.hint}>Eurolite FreeDMX AP defaults: IP 2.0.0.1 · Port 6454 · Universe 0</Text>
+      <Text style={styles.hint}>
+        Eurolite FreeDMX AP defaults: IP 2.0.0.1 · Port 6454 · Universe 0
+      </Text>
 
       <View style={styles.card}>
         <TextInput
@@ -151,24 +155,28 @@ function ConnectionTab() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// LIGHTS TAB — virtual scene
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LIGHTS TAB
+// Stage is outside ScrollView to avoid gesture conflicts with drag
+// ─────────────────────────────────────────────────────────────────────────────
 function LightsTab() {
   const lights = useLightsStore((s) => s.lights)
   const addLight = useLightsStore((s) => s.addLight)
   const removeLight = useLightsStore((s) => s.removeLight)
   const updateLight = useLightsStore((s) => s.updateLight)
-  const moveLight = useLightsStore((s) => s.moveLight)
+  const updateLightPosition = useLightsStore((s) => s.updateLightPosition)
+
+  const activeAmbianceId = useAmbiancesStore((s) => s.activeAmbianceId)
+  const ambiances = useAmbiancesStore((s) => s.ambiances)
+  const activeAmbiance = ambiances.find((a) => a.id === activeAmbianceId) ?? null
 
   const [addDialog, setAddDialog] = useState(false)
   const [editDialog, setEditDialog] = useState<Light | null>(null)
   const [newName, setNewName] = useState('')
-  const [newAddr, setNewAddr] = useState('1')
+  const [newAddr, setNewAddr] = useState('')
   const [newMode, setNewMode] = useState<ChannelMode>('RGB')
-  const [modeMenuId, setModeMenuId] = useState<string | null>(null)
+  const [addModeMenuVisible, setAddModeMenuVisible] = useState(false)
 
-  // local edit state
   const [editName, setEditName] = useState('')
   const [editAddr, setEditAddr] = useState('')
   const [editMode, setEditMode] = useState<ChannelMode>('RGB')
@@ -209,51 +217,61 @@ function LightsTab() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.tabContent}>
-      <View style={styles.lightsHeader}>
-        <Text style={styles.sectionTitle}>SCENE LIGHTS</Text>
-        <Button icon="plus" mode="text" onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}>
-          Add Light
-        </Button>
+    <View style={styles.lightsTabRoot}>
+      {/* ── Virtual scene (outside ScrollView, no gesture conflict) ── */}
+      <View style={styles.sceneWrapper}>
+        <View style={styles.sceneHeader}>
+          <Text style={styles.sectionTitle}>VIRTUAL SCENE</Text>
+          {activeAmbiance && (
+            <Text style={styles.activeAmbianceTag}>
+              showing: {activeAmbiance.name}
+            </Text>
+          )}
+          {!activeAmbiance && (
+            <Text style={styles.noAmbianceTag}>activate an ambiance to see colors</Text>
+          )}
+        </View>
+
+        <SceneStage
+          lights={lights}
+          activeLightStates={activeAmbiance?.lightStates ?? null}
+          onLightMove={updateLightPosition}
+          onLightTap={openEdit}
+        />
       </View>
-      <Text style={styles.hint}>Each rectangle = one physical light. Tap ✏ to configure.</Text>
 
-      {/* Virtual scene grid */}
-      <View style={styles.sceneGrid}>
-        {lights.map((light, idx) => (
-          <View key={light.id} style={styles.lightRect}>
-            {/* Reorder arrows */}
-            <View style={styles.lightRectArrows}>
-              <IconButton
-                icon="chevron-left"
-                size={14}
-                iconColor="#666"
-                onPress={() => idx > 0 && moveLight(idx, idx - 1)}
-                style={styles.arrowBtn}
-              />
-              <IconButton
-                icon="chevron-right"
-                size={14}
-                iconColor="#666"
-                onPress={() => idx < lights.length - 1 && moveLight(idx, idx + 1)}
-                style={styles.arrowBtn}
-              />
+      {/* ── Light list (scrollable) ── */}
+      <ScrollView contentContainerStyle={styles.listContent}>
+        <View style={styles.listHeader}>
+          <Text style={styles.sectionTitle}>CONFIGURED LIGHTS</Text>
+          <Button
+            icon="plus"
+            mode="text"
+            compact
+            onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}
+          >
+            Add
+          </Button>
+        </View>
+
+        {lights.map((light) => (
+          <View key={light.id} style={styles.lightRow}>
+            <View style={styles.lightRowInfo}>
+              <Text style={styles.lightRowName}>{light.name}</Text>
+              <Text style={styles.lightRowMeta}>
+                ch{light.dmxAddress} · {light.channelMode}
+              </Text>
             </View>
-
-            <Text style={styles.lightRectName} numberOfLines={2}>{light.name}</Text>
-            <Text style={styles.lightRectMeta}>ch{light.dmxAddress} · {light.channelMode}</Text>
-
-            <View style={styles.lightRectActions}>
+            <View style={styles.lightRowActions}>
               <IconButton
                 icon="pencil"
-                size={16}
+                size={18}
                 iconColor="#ff6b35"
                 onPress={() => openEdit(light)}
-                style={styles.lightActionBtn}
               />
               <IconButton
                 icon="delete-outline"
-                size={16}
+                size={18}
                 iconColor="#e74c3c"
                 onPress={() =>
                   Alert.alert('Remove Light', `Remove "${light.name}"?`, [
@@ -261,19 +279,17 @@ function LightsTab() {
                     { text: 'Remove', style: 'destructive', onPress: () => removeLight(light.id) },
                   ])
                 }
-                style={styles.lightActionBtn}
               />
             </View>
           </View>
         ))}
 
         {lights.length === 0 && (
-          <View style={styles.emptyScene}>
-            <Text style={styles.emptySceneText}>No lights yet.</Text>
-            <Text style={styles.hint}>Tap "Add Light" to add your first fixture.</Text>
-          </View>
+          <Text style={styles.emptyHint}>No lights yet. Tap Add to create your first fixture.</Text>
         )}
-      </View>
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
 
       {/* ── Add dialog ── */}
       <Portal>
@@ -299,10 +315,10 @@ function LightsTab() {
             />
             <Text style={styles.dialogLabel}>Channel Mode</Text>
             <Menu
-              visible={modeMenuId === 'add'}
-              onDismiss={() => setModeMenuId(null)}
+              visible={addModeMenuVisible}
+              onDismiss={() => setAddModeMenuVisible(false)}
               anchor={
-                <Button mode="outlined" onPress={() => setModeMenuId('add')} style={styles.modeBtn}>
+                <Button mode="outlined" onPress={() => setAddModeMenuVisible(true)} style={styles.modeBtn}>
                   {CHANNEL_MODE_OPTIONS.find((m) => m.mode === newMode)?.label ?? newMode}
                 </Button>
               }
@@ -311,7 +327,7 @@ function LightsTab() {
                 <Menu.Item
                   key={opt.mode}
                   title={opt.label}
-                  onPress={() => { setNewMode(opt.mode); setModeMenuId(null) }}
+                  onPress={() => { setNewMode(opt.mode); setAddModeMenuVisible(false) }}
                 />
               ))}
             </Menu>
@@ -349,7 +365,11 @@ function LightsTab() {
               visible={editModeMenuVisible}
               onDismiss={() => setEditModeMenuVisible(false)}
               anchor={
-                <Button mode="outlined" onPress={() => setEditModeMenuVisible(true)} style={styles.modeBtn}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setEditModeMenuVisible(true)}
+                  style={styles.modeBtn}
+                >
                   {CHANNEL_MODE_OPTIONS.find((m) => m.mode === editMode)?.label ?? editMode}
                 </Button>
               }
@@ -369,7 +389,7 @@ function LightsTab() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </ScrollView>
+    </View>
   )
 }
 
@@ -384,7 +404,7 @@ const styles = StyleSheet.create({
   tabContent: { padding: 16 },
 
   sectionTitle: {
-    fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5, marginBottom: 4,
+    fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5,
   },
   hint: { fontSize: 12, color: '#444', marginBottom: 12 },
 
@@ -395,29 +415,38 @@ const styles = StyleSheet.create({
   successMsg: { color: '#2ecc71', fontSize: 13, textAlign: 'center' },
   errorMsg: { color: '#e74c3c', fontSize: 13, textAlign: 'center' },
 
-  lightsHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
+  // ── Lights tab ──
+  lightsTabRoot: { flex: 1 },
+
+  sceneWrapper: { paddingTop: 12, paddingBottom: 4 },
+  sceneHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
-  sceneGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8,
+  activeAmbianceTag: { fontSize: 11, color: '#ff6b35', fontStyle: 'italic' },
+  noAmbianceTag: { fontSize: 10, color: '#333', fontStyle: 'italic' },
+
+  listContent: { paddingHorizontal: 16, paddingTop: 8 },
+  listHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6,
   },
-  lightRect: {
-    width: '47%',
+  lightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#141414',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    minHeight: 120,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 6,
   },
-  lightRectArrows: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 2 },
-  arrowBtn: { margin: 0, width: 24, height: 24 },
-  lightRectName: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  lightRectMeta: { fontSize: 11, color: '#666' },
-  lightRectActions: { flexDirection: 'row', marginTop: 8 },
-  lightActionBtn: { margin: 0 },
-  emptyScene: { width: '100%', alignItems: 'center', paddingVertical: 40 },
-  emptySceneText: { color: '#555', fontSize: 15, marginBottom: 8 },
+  lightRowInfo: { flex: 1 },
+  lightRowName: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  lightRowMeta: { fontSize: 11, color: '#555', marginTop: 2 },
+  lightRowActions: { flexDirection: 'row' },
+  emptyHint: { color: '#444', fontSize: 13, textAlign: 'center', marginTop: 16 },
 
   dialogInput: { backgroundColor: 'transparent', marginBottom: 8 },
   dialogLabel: { fontSize: 12, color: '#888', marginBottom: 4, marginTop: 4 },
