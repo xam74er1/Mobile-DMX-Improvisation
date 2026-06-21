@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
 import { ScrollView, StyleSheet, View, Alert } from 'react-native'
-import { Text, TextInput, Button, Divider, IconButton, Portal, Dialog } from 'react-native-paper'
+import { Text, TextInput, Button, IconButton, Portal, Dialog } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { FixtureChannelEditor } from '../../src/components/FixtureChannelEditor'
 import { useFixturesStore } from '../../src/store/fixturesStore'
 import { useSettingsStore } from '../../src/store/settingsStore'
 import { dmxService } from '../../src/dmx'
-import { useSceneStore } from '../../src/store/sceneStore'
 
 export default function SettingsScreen() {
   const fixtures = useFixturesStore((s) => s.fixtures)
@@ -28,8 +27,6 @@ export default function SettingsScreen() {
   const [addDialog, setAddDialog] = useState(false)
   const [newFixtureName, setNewFixtureName] = useState('')
 
-  const channels = useSceneStore((s) => s.channels)
-
   function commitIp() {
     setReceiverIp(ipInput.trim() || receiverIp)
   }
@@ -49,17 +46,6 @@ export default function SettingsScreen() {
   async function testConnection() {
     setTesting(true)
     try {
-      const blink = new Uint8Array(512)
-      // Flash channel 1 to 255
-      blink[0] = 255
-      await dmxService['client' as keyof typeof dmxService] // not exposed, use sync
-      // Use a simple blink via sceneStore.sync
-      const testUniverse = new Uint8Array(512)
-      testUniverse[0] = 255
-      testUniverse[1] = 255
-      testUniverse[2] = 255
-      // Send via the client directly through DMXService.sync
-      // We'll use a temporary all-on scene
       const testFixtures = fixtures.map((f) => ({ id: f.id, dmxAddress: f.dmxAddress, channelMode: f.channelMode }))
       const testScene: Record<string, { r: number; g: number; b: number; w: number; intensity: number; isOn: boolean }> = {}
       for (const f of fixtures) {

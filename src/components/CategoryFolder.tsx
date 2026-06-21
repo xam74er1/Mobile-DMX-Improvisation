@@ -1,5 +1,5 @@
 import React from 'react'
-import { StyleSheet, View, Pressable, FlatList } from 'react-native'
+import { StyleSheet, View, Pressable } from 'react-native'
 import { Text } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useFixturesStore, type Category, type Fixture } from '../store/fixturesStore'
@@ -30,7 +30,7 @@ export function CategoryFolder({ category, fixtures, onFixtureLongPress }: Props
 
       {category.isExpanded && (
         <View style={styles.grid}>
-          {fixtures.map((fixture, idx) => (
+          {fixtures.map((fixture) => (
             <View key={fixture.id} style={styles.cardWrapper}>
               <LightCard
                 fixture={fixture}
