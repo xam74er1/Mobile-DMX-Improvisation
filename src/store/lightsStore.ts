@@ -3,28 +3,43 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { ChannelMode } from '../constants/channelModes'
 
+export interface LightColor {
+  r: number
+  g: number
+  b: number
+  w: number
+}
+
 export interface Light {
   id: string
   name: string
   dmxAddress: number
   channelMode: ChannelMode
-  sceneX: number  // 0.0–1.0 fraction of stage width
-  sceneY: number  // 0.0–1.0 fraction of stage height
+  sceneX: number      // 0.0–1.0 fraction of stage width
+  sceneY: number      // 0.0–1.0 fraction of stage height
+  defaultColor: LightColor  // shown when no ambiance is active; starting color in new ambiances
 }
 
 function makeId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-// Default x positions for up to 6 new lights so they spread nicely
-const DEFAULT_POS = [
-  [0.5, 0.35],
-  [0.25, 0.35], [0.75, 0.35],
-  [0.25, 0.65], [0.5, 0.65], [0.75, 0.65],
+const SPREAD_POS = [
+  [0.5, 0.3],
+  [0.25, 0.3], [0.75, 0.3],
+  [0.17, 0.3], [0.5, 0.3], [0.83, 0.3],
 ]
 
 const DEFAULT_LIGHTS: Light[] = [
-  { id: 'light-1', name: 'Light 1', dmxAddress: 1, channelMode: 'RGB', sceneX: 0.5, sceneY: 0.35 },
+  {
+    id: 'light-1',
+    name: 'Light 1',
+    dmxAddress: 1,
+    channelMode: 'RGB',
+    sceneX: 0.5,
+    sceneY: 0.3,
+    defaultColor: { r: 255, g: 255, b: 255, w: 0 },
+  },
 ]
 
 interface LightsState {
@@ -44,9 +59,19 @@ export const useLightsStore = create<LightsState>()(
       addLight: (name, dmxAddress, channelMode) => {
         const id = `light-${makeId()}`
         const idx = get().lights.length
-        const [sx, sy] = DEFAULT_POS[idx % DEFAULT_POS.length] ?? [0.5, 0.5]
+        const [sx, sy] = SPREAD_POS[idx % SPREAD_POS.length] ?? [0.5, 0.3]
+        // Each new light gets a distinct default color
+        const DEFAULT_COLORS: LightColor[] = [
+          { r: 255, g: 0,   b: 0,   w: 0 },
+          { r: 0,   g: 68,  b: 255, w: 0 },
+          { r: 0,   g: 200, b: 0,   w: 0 },
+          { r: 255, g: 120, b: 0,   w: 0 },
+          { r: 200, g: 0,   b: 200, w: 0 },
+          { r: 0,   g: 200, b: 200, w: 0 },
+        ]
+        const defaultColor = DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
         set((s) => ({
-          lights: [...s.lights, { id, name, dmxAddress, channelMode, sceneX: sx, sceneY: sy }],
+          lights: [...s.lights, { id, name, dmxAddress, channelMode, sceneX: sx, sceneY: sy, defaultColor }],
         }))
         return id
       },

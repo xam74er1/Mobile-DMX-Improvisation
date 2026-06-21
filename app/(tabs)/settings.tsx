@@ -1,18 +1,31 @@
-import React, { useState } from 'react'
-import { ScrollView, StyleSheet, View, Alert } from 'react-native'
+import React, { useState, useRef } from 'react'
+import { ScrollView, StyleSheet, View, Alert, Pressable } from 'react-native'
 import {
   Text, TextInput, Button, IconButton, Portal, Dialog,
-  SegmentedButtons, Menu,
+  SegmentedButtons, Menu, Switch, Chip,
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SceneStage } from '../../src/components/SceneStage'
-import { useLightsStore, type Light } from '../../src/store/lightsStore'
+import { useLightsStore, type Light, type LightColor } from '../../src/store/lightsStore'
 import { useSettingsStore } from '../../src/store/settingsStore'
-import { useAmbiancesStore } from '../../src/store/ambiancesStore'
+import { useAmbiancesStore, type LightState } from '../../src/store/ambiancesStore'
 import { dmxService } from '../../src/dmx'
 import { CHANNEL_MODE_OPTIONS, type ChannelMode } from '../../src/constants/channelModes'
+import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
 
 type Tab = 'connection' | 'lights'
+
+// Distinct bright colors for test mode, one per light
+const TEST_PALETTE: LightColor[] = [
+  { r: 255, g: 0,   b: 0,   w: 0 },
+  { r: 0,   g: 68,  b: 255, w: 0 },
+  { r: 0,   g: 210, b: 0,   w: 0 },
+  { r: 255, g: 120, b: 0,   w: 0 },
+  { r: 200, g: 0,   b: 220, w: 0 },
+  { r: 0,   g: 210, b: 210, w: 0 },
+  { r: 255, g: 220, b: 0,   w: 0 },
+  { r: 255, g: 0,   b: 130, w: 0 },
+]
 
 export default function SettingsScreen() {
   const [tab, setTab] = useState<Tab>('connection')
@@ -73,7 +86,7 @@ function ConnectionTab() {
       const fixtures = lights.map((l) => ({
         id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
       }))
-      const allOn: Record<string, { r: number; g: number; b: number; w: number; intensity: number; isOn: boolean }> = {}
+      const allOn: Record<string, LightState> = {}
       for (const f of fixtures) {
         allOn[f.id] = { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true }
       }
@@ -148,7 +161,7 @@ function ConnectionTab() {
           style={styles.testBtn}
           contentStyle={styles.testBtnContent}
         >
-          Test Connection (Blink All Lights)
+          Test Connection (Blink)
         </Button>
       </View>
     </ScrollView>
@@ -170,8 +183,54 @@ function LightsTab() {
   const ambiances = useAmbiancesStore((s) => s.ambiances)
   const activeAmbiance = ambiances.find((a) => a.id === activeAmbianceId) ?? null
 
+  const receiverIp = useSettingsStore((s) => s.receiverIp)
+  const receiverPort = useSettingsStore((s) => s.receiverPort)
+  const universe = useSettingsStore((s) => s.universe)
+
+  // ── Test mode ──────────────────────────────────────────────
+  const [testMode, setTestMode] = useState(false)
+  const [testStates, setTestStates] = useState<Record<string, LightState> | null>(null)
+  const stopTestRef = useRef(false)
+
+  async function startTestMode() {
+    stopTestRef.current = false
+    setTestMode(true)
+
+    const fixtures = lights.map((l) => ({
+      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+    }))
+    const scene: Record<string, LightState> = {}
+    lights.forEach((l, i) => {
+      const c = TEST_PALETTE[i % TEST_PALETTE.length]
+      scene[l.id] = { ...c, intensity: 100, isOn: true }
+    })
+    setTestStates(scene)
+    try {
+      await dmxService.sync(fixtures, scene, false, receiverIp, receiverPort, universe)
+    } catch {}
+  }
+
+  async function stopTestMode() {
+    stopTestRef.current = true
+    setTestMode(false)
+    setTestStates(null)
+    // Restore active ambiance or blackout
+    const fixtures = lights.map((l) => ({
+      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+    }))
+    try {
+      const restoreScene = activeAmbiance?.lightStates ?? {}
+      await dmxService.sync(fixtures, restoreScene, !activeAmbiance, receiverIp, receiverPort, universe)
+    } catch {}
+  }
+
+  // Stage shows: test mode colors > active ambiance colors > null (default colors from light config)
+  const stageStates = testStates ?? activeAmbiance?.lightStates ?? null
+
+  // ── Light config dialog ────────────────────────────────────
   const [addDialog, setAddDialog] = useState(false)
   const [editDialog, setEditDialog] = useState<Light | null>(null)
+
   const [newName, setNewName] = useState('')
   const [newAddr, setNewAddr] = useState('')
   const [newMode, setNewMode] = useState<ChannelMode>('RGB')
@@ -181,12 +240,14 @@ function LightsTab() {
   const [editAddr, setEditAddr] = useState('')
   const [editMode, setEditMode] = useState<ChannelMode>('RGB')
   const [editModeMenuVisible, setEditModeMenuVisible] = useState(false)
+  const [editDefaultColor, setEditDefaultColor] = useState<LightColor>({ r: 255, g: 255, b: 255, w: 0 })
 
   function openEdit(light: Light) {
     setEditDialog(light)
     setEditName(light.name)
     setEditAddr(String(light.dmxAddress))
     setEditMode(light.channelMode)
+    setEditDefaultColor(light.defaultColor)
   }
 
   function confirmEdit() {
@@ -196,6 +257,7 @@ function LightsTab() {
       name: editName.trim() || editDialog.name,
       dmxAddress: addr >= 1 && addr <= 512 ? addr : editDialog.dmxAddress,
       channelMode: editMode,
+      defaultColor: editDefaultColor,
     })
     setEditDialog(null)
   }
@@ -210,85 +272,86 @@ function LightsTab() {
       addr >= 1 && addr <= 512 ? addr : nextAddr,
       newMode,
     )
-    setNewName('')
-    setNewAddr('')
-    setNewMode('RGB')
+    setNewName(''); setNewAddr(''); setNewMode('RGB')
     setAddDialog(false)
   }
 
   return (
-    <View style={styles.lightsTabRoot}>
-      {/* ── Virtual scene (outside ScrollView, no gesture conflict) ── */}
-      <View style={styles.sceneWrapper}>
+    <View style={styles.lightsRoot}>
+
+      {/* ── Virtual scene (outside scroll — gesture-safe) ── */}
+      <View style={styles.sceneArea}>
         <View style={styles.sceneHeader}>
           <Text style={styles.sectionTitle}>VIRTUAL SCENE</Text>
-          {activeAmbiance && (
-            <Text style={styles.activeAmbianceTag}>
-              showing: {activeAmbiance.name}
-            </Text>
-          )}
-          {!activeAmbiance && (
-            <Text style={styles.noAmbianceTag}>activate an ambiance to see colors</Text>
-          )}
+          <View style={styles.sceneHeaderRight}>
+            {testMode
+              ? <Chip icon="palette" onPress={stopTestMode} style={styles.testChipActive} textStyle={styles.testChipTextActive}>Stop Test</Chip>
+              : <Chip icon="lightbulb-on-outline" onPress={startTestMode} style={styles.testChip} textStyle={styles.testChipText}>Test Mode</Chip>
+            }
+          </View>
         </View>
+
+        {testMode && (
+          <View style={styles.testBanner}>
+            <Text style={styles.testBannerText}>
+              🎨 Test mode — each light shows a distinct color
+            </Text>
+          </View>
+        )}
+
+        {!testMode && activeAmbiance && (
+          <Text style={styles.sceneSubtitle}>
+            Showing: <Text style={{ color: '#ff6b35' }}>{activeAmbiance.name}</Text>
+          </Text>
+        )}
+        {!testMode && !activeAmbiance && (
+          <Text style={styles.sceneSubtitle}>Showing default colors · activate an ambiance to preview</Text>
+        )}
 
         <SceneStage
           lights={lights}
-          activeLightStates={activeAmbiance?.lightStates ?? null}
+          activeLightStates={stageStates}
           onLightMove={updateLightPosition}
           onLightTap={openEdit}
         />
       </View>
 
-      {/* ── Light list (scrollable) ── */}
+      {/* ── Scrollable light list ── */}
       <ScrollView contentContainerStyle={styles.listContent}>
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>CONFIGURED LIGHTS</Text>
-          <Button
-            icon="plus"
-            mode="text"
-            compact
-            onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}
-          >
+          <Button icon="plus" mode="text" compact onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}>
             Add
           </Button>
         </View>
 
-        {lights.map((light) => (
-          <View key={light.id} style={styles.lightRow}>
-            <View style={styles.lightRowInfo}>
-              <Text style={styles.lightRowName}>{light.name}</Text>
-              <Text style={styles.lightRowMeta}>
-                ch{light.dmxAddress} · {light.channelMode}
-              </Text>
-            </View>
-            <View style={styles.lightRowActions}>
+        {lights.map((light) => {
+          const dc = light.defaultColor
+          const defColorStr = `rgb(${dc.r + dc.w},${dc.g + dc.w},${dc.b + dc.w})`
+          return (
+            <View key={light.id} style={styles.lightRow}>
+              <View style={[styles.colorDot, { backgroundColor: defColorStr }]} />
+              <View style={styles.lightRowInfo}>
+                <Text style={styles.lightRowName}>{light.name}</Text>
+                <Text style={styles.lightRowMeta}>ch{light.dmxAddress} · {light.channelMode}</Text>
+              </View>
+              <IconButton icon="pencil" size={18} iconColor="#ff6b35" onPress={() => openEdit(light)} />
               <IconButton
-                icon="pencil"
-                size={18}
-                iconColor="#ff6b35"
-                onPress={() => openEdit(light)}
-              />
-              <IconButton
-                icon="delete-outline"
-                size={18}
-                iconColor="#e74c3c"
+                icon="delete-outline" size={18} iconColor="#e74c3c"
                 onPress={() =>
-                  Alert.alert('Remove Light', `Remove "${light.name}"?`, [
+                  Alert.alert('Remove', `Remove "${light.name}"?`, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Remove', style: 'destructive', onPress: () => removeLight(light.id) },
                   ])
                 }
               />
             </View>
-          </View>
-        ))}
-
+          )
+        })}
         {lights.length === 0 && (
           <Text style={styles.emptyHint}>No lights yet. Tap Add to create your first fixture.</Text>
         )}
-
-        <View style={{ height: 20 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
 
       {/* ── Add dialog ── */}
@@ -296,39 +359,16 @@ function LightsTab() {
         <Dialog visible={addDialog} onDismiss={() => setAddDialog(false)}>
           <Dialog.Title>Add Light</Dialog.Title>
           <Dialog.Content>
-            <TextInput
-              label="Name"
-              value={newName}
-              onChangeText={setNewName}
-              mode="outlined"
-              style={styles.dialogInput}
-              autoFocus
-              placeholder={`Light ${lights.length + 1}`}
-            />
-            <TextInput
-              label="DMX Start Address (1–512)"
-              value={newAddr}
-              onChangeText={setNewAddr}
-              keyboardType="numeric"
-              mode="outlined"
-              style={styles.dialogInput}
-            />
+            <TextInput label="Name" value={newName} onChangeText={setNewName} mode="outlined" style={styles.dialogInput} autoFocus placeholder={`Light ${lights.length + 1}`} />
+            <TextInput label="DMX Start Address (1–512)" value={newAddr} onChangeText={setNewAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
             <Text style={styles.dialogLabel}>Channel Mode</Text>
             <Menu
               visible={addModeMenuVisible}
               onDismiss={() => setAddModeMenuVisible(false)}
-              anchor={
-                <Button mode="outlined" onPress={() => setAddModeMenuVisible(true)} style={styles.modeBtn}>
-                  {CHANNEL_MODE_OPTIONS.find((m) => m.mode === newMode)?.label ?? newMode}
-                </Button>
-              }
+              anchor={<Button mode="outlined" onPress={() => setAddModeMenuVisible(true)} style={styles.modeBtn}>{CHANNEL_MODE_OPTIONS.find((m) => m.mode === newMode)?.label ?? newMode}</Button>}
             >
               {CHANNEL_MODE_OPTIONS.map((opt) => (
-                <Menu.Item
-                  key={opt.mode}
-                  title={opt.label}
-                  onPress={() => { setNewMode(opt.mode); setAddModeMenuVisible(false) }}
-                />
+                <Menu.Item key={opt.mode} title={opt.label} onPress={() => { setNewMode(opt.mode); setAddModeMenuVisible(false) }} />
               ))}
             </Menu>
           </Dialog.Content>
@@ -339,50 +379,59 @@ function LightsTab() {
         </Dialog>
       </Portal>
 
-      {/* ── Edit dialog ── */}
+      {/* ── Edit / configure dialog ── */}
       <Portal>
         <Dialog visible={!!editDialog} onDismiss={() => setEditDialog(null)}>
           <Dialog.Title>Configure Light</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Name"
-              value={editName}
-              onChangeText={setEditName}
-              mode="outlined"
-              style={styles.dialogInput}
-              autoFocus
-            />
-            <TextInput
-              label="DMX Start Address (1–512)"
-              value={editAddr}
-              onChangeText={setEditAddr}
-              keyboardType="numeric"
-              mode="outlined"
-              style={styles.dialogInput}
-            />
-            <Text style={styles.dialogLabel}>Channel Mode</Text>
-            <Menu
-              visible={editModeMenuVisible}
-              onDismiss={() => setEditModeMenuVisible(false)}
-              anchor={
-                <Button
-                  mode="outlined"
-                  onPress={() => setEditModeMenuVisible(true)}
-                  style={styles.modeBtn}
-                >
-                  {CHANNEL_MODE_OPTIONS.find((m) => m.mode === editMode)?.label ?? editMode}
-                </Button>
-              }
-            >
-              {CHANNEL_MODE_OPTIONS.map((opt) => (
-                <Menu.Item
-                  key={opt.mode}
-                  title={opt.label}
-                  onPress={() => { setEditMode(opt.mode); setEditModeMenuVisible(false) }}
-                />
-              ))}
-            </Menu>
-          </Dialog.Content>
+          <Dialog.ScrollArea style={styles.editScrollArea}>
+            <ScrollView>
+              <TextInput label="Name" value={editName} onChangeText={setEditName} mode="outlined" style={styles.dialogInput} autoFocus />
+              <TextInput label="DMX Start Address (1–512)" value={editAddr} onChangeText={setEditAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
+
+              <Text style={styles.dialogLabel}>Channel Mode</Text>
+              <Menu
+                visible={editModeMenuVisible}
+                onDismiss={() => setEditModeMenuVisible(false)}
+                anchor={<Button mode="outlined" onPress={() => setEditModeMenuVisible(true)} style={styles.modeBtn}>{CHANNEL_MODE_OPTIONS.find((m) => m.mode === editMode)?.label ?? editMode}</Button>}
+              >
+                {CHANNEL_MODE_OPTIONS.map((opt) => (
+                  <Menu.Item key={opt.mode} title={opt.label} onPress={() => { setEditMode(opt.mode); setEditModeMenuVisible(false) }} />
+                ))}
+              </Menu>
+
+              {/* ── Default color picker ── */}
+              <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Default Color (shown when no ambiance active)</Text>
+              <View style={styles.colorSwatches}>
+                {DEFAULT_COLORS.map((c) => {
+                  const col: LightColor = { r: c.r, g: c.g, b: c.b, w: c.w }
+                  const isSelected = editDefaultColor.r === c.r && editDefaultColor.g === c.g && editDefaultColor.b === c.b && editDefaultColor.w === c.w
+                  return (
+                    <Pressable
+                      key={c.hex}
+                      onPress={() => setEditDefaultColor(col)}
+                      style={[styles.colorSwatch, { backgroundColor: c.hex }, isSelected && styles.colorSwatchSelected]}
+                    />
+                  )
+                })}
+              </View>
+              {/* Extra test-palette colors */}
+              <View style={styles.colorSwatches}>
+                {TEST_PALETTE.map((c, i) => {
+                  const hex = `rgb(${c.r},${c.g},${c.b})`
+                  const isSelected = editDefaultColor.r === c.r && editDefaultColor.g === c.g && editDefaultColor.b === c.b
+                  return (
+                    <Pressable
+                      key={i}
+                      onPress={() => setEditDefaultColor(c)}
+                      style={[styles.colorSwatch, { backgroundColor: hex }, isSelected && styles.colorSwatchSelected]}
+                    />
+                  )
+                })}
+              </View>
+
+              <View style={{ height: 8 }} />
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setEditDialog(null)}>Cancel</Button>
             <Button onPress={confirmEdit}>Save</Button>
@@ -403,9 +452,7 @@ const styles = StyleSheet.create({
   segmented: { backgroundColor: '#1a1a1a' },
   tabContent: { padding: 16 },
 
-  sectionTitle: {
-    fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5,
-  },
+  sectionTitle: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5 },
   hint: { fontSize: 12, color: '#444', marginBottom: 12 },
 
   card: { backgroundColor: '#141414', borderRadius: 14, padding: 16, gap: 10 },
@@ -416,39 +463,55 @@ const styles = StyleSheet.create({
   errorMsg: { color: '#e74c3c', fontSize: 13, textAlign: 'center' },
 
   // ── Lights tab ──
-  lightsTabRoot: { flex: 1 },
+  lightsRoot: { flex: 1 },
 
-  sceneWrapper: { paddingTop: 12, paddingBottom: 4 },
+  sceneArea: { paddingTop: 10, paddingBottom: 2 },
   sceneHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: 16, marginBottom: 4,
   },
-  activeAmbianceTag: { fontSize: 11, color: '#ff6b35', fontStyle: 'italic' },
-  noAmbianceTag: { fontSize: 10, color: '#333', fontStyle: 'italic' },
+  sceneHeaderRight: { flexDirection: 'row', gap: 8 },
+  sceneSubtitle: { fontSize: 11, color: '#444', paddingHorizontal: 16, marginBottom: 6 },
+
+  testChip: { backgroundColor: '#1a2535', height: 28 },
+  testChipText: { fontSize: 11, color: '#aaa' },
+  testChipActive: { backgroundColor: '#ff6b35', height: 28 },
+  testChipTextActive: { fontSize: 11, color: '#fff' },
+  testBanner: {
+    marginHorizontal: 16, marginBottom: 6,
+    backgroundColor: 'rgba(255,107,53,0.12)',
+    borderRadius: 8, padding: 8,
+    borderLeftWidth: 3, borderLeftColor: '#ff6b35',
+  },
+  testBannerText: { color: '#ff6b35', fontSize: 12 },
 
   listContent: { paddingHorizontal: 16, paddingTop: 8 },
   listHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6,
   },
   lightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141414',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 6,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#141414', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6,
+  },
+  colorDot: {
+    width: 14, height: 14, borderRadius: 7, marginRight: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
   lightRowInfo: { flex: 1 },
   lightRowName: { fontSize: 14, fontWeight: '600', color: '#fff' },
   lightRowMeta: { fontSize: 11, color: '#555', marginTop: 2 },
-  lightRowActions: { flexDirection: 'row' },
   emptyHint: { color: '#444', fontSize: 13, textAlign: 'center', marginTop: 16 },
 
+  editScrollArea: { maxHeight: 420 },
   dialogInput: { backgroundColor: 'transparent', marginBottom: 8 },
-  dialogLabel: { fontSize: 12, color: '#888', marginBottom: 4, marginTop: 4 },
+  dialogLabel: { fontSize: 12, color: '#888', marginBottom: 6 },
   modeBtn: { marginBottom: 4 },
+  colorSwatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  colorSwatch: {
+    width: 34, height: 34, borderRadius: 17,
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  colorSwatchSelected: { borderColor: '#ffffff' },
 })

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -8,18 +8,26 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
+import Svg, {
+  Path, Ellipse, Rect, Circle, Defs,
+  RadialGradient, Stop, G,
+} from 'react-native-svg'
 import type { Light } from '../store/lightsStore'
 import type { LightState } from '../store/ambiancesStore'
 
-export const STAGE_HEIGHT = 220
-const LIGHT_W = 72
-const LIGHT_H = 50
+// ── Layout constants ──────────────────────────────────────────
+export const STAGE_HEIGHT = 240
+const ICON_W = 48    // total icon width  (SVG viewBox width)
+const ICON_H = 96    // total icon height (SVG viewBox height)
+// The "head" of the fixture sits at ~28% down the icon
+const HEAD_Y_FRAC = 0.28
 const GRID_COLS = 4
 const GRID_ROWS = 3
 
+// ── Public interface ──────────────────────────────────────────
 interface Props {
   lights: Light[]
-  /** Light states from the currently active ambiance, or null if none */
+  /** Color to display — from active ambiance or test mode. null = show defaultColor */
   activeLightStates: Record<string, LightState> | null
   onLightMove: (lightId: string, x: number, y: number) => void
   onLightTap: (light: Light) => void
@@ -34,43 +42,56 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
         style={styles.stage}
         onLayout={(e) => setStageW(e.nativeEvent.layout.width)}
       >
-        {/* Subtle grid */}
         {stageW > 1 && <GridOverlay stageW={stageW} />}
 
-        {/* Stage front bar */}
-        <View style={styles.frontBar}>
-          <Text style={styles.frontLabel}>▼  STAGE FRONT — AUDIENCE  ▼</Text>
+        {/* Audience bar at bottom */}
+        <View style={styles.audienceBar}>
+          <Text style={styles.audienceLabel}>▼  AUDIENCE  ▼</Text>
         </View>
 
-        {/* Draggable light nodes */}
+        {lights.length === 0 && (
+          <View style={styles.emptyMsg}>
+            <Text style={styles.emptyText}>Add lights below to see them here</Text>
+          </View>
+        )}
+
         {stageW > 1 &&
           lights.map((light) => {
-            const state = activeLightStates?.[light.id] ?? null
-            const color = state?.isOn ? computeColor(state) : '#252525'
+            // Resolve color: active ambiance > default color > dim fallback
+            const amb = activeLightStates?.[light.id] ?? null
+            let r = light.defaultColor.r
+            let g = light.defaultColor.g
+            let b = light.defaultColor.b
+            let w = light.defaultColor.w
+            let intensity = 100
+            let isOn = false  // off when no ambiance
+
+            if (amb) {
+              r = amb.r; g = amb.g; b = amb.b; w = amb.w
+              intensity = amb.intensity
+              isOn = amb.isOn
+            }
+
             return (
               <DraggableLight
                 key={light.id}
                 light={light}
-                color={color}
+                r={r} g={g} b={b} w={w}
+                intensity={intensity}
+                isOn={isOn}
                 stageW={stageW}
                 onMove={(x, y) => onLightMove(light.id, x, y)}
                 onTap={() => onLightTap(light)}
               />
             )
           })}
-
-        {lights.length === 0 && (
-          <View style={styles.emptyStage}>
-            <Text style={styles.emptyStageText}>No lights — add one below</Text>
-          </View>
-        )}
       </View>
-      <Text style={styles.dragHint}>Hold & drag to reposition · Tap to configure</Text>
+      <Text style={styles.hint}>Drag lights to reposition · Tap to configure</Text>
     </View>
   )
 }
 
-// ── Grid overlay ──────────────────────────────────────────────────────────────
+// ── Grid ──────────────────────────────────────────────────────
 function GridOverlay({ stageW }: { stageW: number }) {
   const vLines = Array.from({ length: GRID_COLS - 1 }, (_, i) =>
     Math.round((stageW / GRID_COLS) * (i + 1)),
@@ -81,125 +102,196 @@ function GridOverlay({ stageW }: { stageW: number }) {
   return (
     <>
       {vLines.map((x) => (
-        <View key={`v${x}`} style={[styles.gridLineV, { left: x }]} />
+        <View key={`v${x}`} style={[styles.gridV, { left: x }]} />
       ))}
       {hLines.map((y) => (
-        <View key={`h${y}`} style={[styles.gridLineH, { top: y }]} />
+        <View key={`h${y}`} style={[styles.gridH, { top: y }]} />
       ))}
     </>
   )
 }
 
-// ── Draggable light node ──────────────────────────────────────────────────────
+// ── Stage light SVG icon ──────────────────────────────────────
+interface LightIconProps {
+  r: number; g: number; b: number; w: number
+  intensity: number
+  isOn: boolean
+  width: number
+  height: number
+}
+
+function StageLightIcon({ r, g, b, w, intensity, isOn, width, height }: LightIconProps) {
+  const ratio = intensity / 100
+  const dr = Math.min(255, Math.round((r + w) * ratio))
+  const dg = Math.min(255, Math.round((g + w) * ratio))
+  const db = Math.min(255, Math.round((b + w) * ratio))
+  const colorStr = `rgb(${dr},${dg},${db})`
+  const dimColor = `rgba(${dr},${dg},${db},0.12)`
+
+  // SVG coordinate system: 48 × 96
+  return (
+    <Svg width={width} height={height} viewBox="0 0 48 96">
+      <Defs>
+        <RadialGradient id="beamGrad" cx="50%" cy="0%" r="100%">
+          <Stop offset="0%" stopColor={colorStr} stopOpacity={isOn ? 0.55 : 0.06} />
+          <Stop offset="100%" stopColor={colorStr} stopOpacity={isOn ? 0.05 : 0} />
+        </RadialGradient>
+        <RadialGradient id="lensGrad" cx="40%" cy="35%" r="65%">
+          <Stop offset="0%" stopColor="#ffffff" stopOpacity={isOn ? 0.7 : 0.1} />
+          <Stop offset="100%" stopColor={colorStr} stopOpacity={isOn ? 0.9 : 0.25} />
+        </RadialGradient>
+      </Defs>
+
+      {/* ── Beam cone (behind everything else) ── */}
+      <Path
+        d="M16,32 L32,32 L46,92 L2,92 Z"
+        fill="url(#beamGrad)"
+      />
+      {/* Soft beam center line */}
+      {isOn && (
+        <Path
+          d="M24,32 L24,92"
+          stroke={colorStr}
+          strokeWidth={isOn ? 1.5 : 0}
+          strokeOpacity={0.18}
+        />
+      )}
+
+      {/* ── Rigging bar / truss ── */}
+      <Rect x="4" y="2" width="40" height="5" rx="2.5" fill="#2a2a2a" />
+
+      {/* ── Fixture body (trapezoid) ── */}
+      <Path d="M13,7 L35,7 L37,26 L11,26 Z" fill="#3c3c3c" />
+
+      {/* ── Knuckle / pan-tilt joint ── */}
+      <Rect x="20" y="24" width="8" height="5" rx="2" fill="#555" />
+
+      {/* ── Lens housing ring ── */}
+      <Ellipse cx="24" cy="30" rx="11" ry="5" fill="#2a2a2a" />
+
+      {/* ── Lens face ── */}
+      <Ellipse cx="24" cy="30" rx="9" ry="4" fill="url(#lensGrad)" />
+
+      {/* ── Name label position marker ── (not rendered, used for layout reference) */}
+    </Svg>
+  )
+}
+
+// ── Draggable light node ──────────────────────────────────────
 interface DLProps {
   light: Light
-  color: string
+  r: number; g: number; b: number; w: number
+  intensity: number
+  isOn: boolean
   stageW: number
   onMove: (x: number, y: number) => void
   onTap: () => void
 }
 
-function DraggableLight({ light, color, stageW, onMove, onTap }: DLProps) {
-  const tx = useSharedValue(0)
-  const ty = useSharedValue(0)
+function DraggableLight({ light, r, g, b, w, intensity, isOn, stageW, onMove, onTap }: DLProps) {
+  // Absolute pixel position of the icon's top-left, so the HEAD is at (sceneX, sceneY)
+  const initX = () => light.sceneX * stageW - ICON_W / 2
+  const initY = () => light.sceneY * STAGE_HEIGHT - ICON_H * HEAD_Y_FRAC
+
+  // Shared values own the position — never go through JS bridge during drag
+  const posX = useSharedValue(initX())
+  const posY = useSharedValue(initY())
+  const startX = useSharedValue(0)
+  const startY = useSharedValue(0)
   const sc = useSharedValue(1)
   const dragging = useSharedValue(false)
 
-  // Absolute pixel position of the light's top-left corner
-  const absX = light.sceneX * stageW - LIGHT_W / 2
-  const absY = light.sceneY * STAGE_HEIGHT - LIGHT_H / 2
-
-  const isDark = isColorDark(color)
+  // Sync when store position changes (e.g. after first mount or external reset)
+  useEffect(() => {
+    posX.value = initX()
+    posY.value = initY()
+  }, [light.sceneX, light.sceneY, stageW])
 
   const pan = Gesture.Pan()
-    .onStart(() => {
+    .onBegin(() => {
+      startX.value = posX.value
+      startY.value = posY.value
       dragging.value = true
-      sc.value = withTiming(1.12, { duration: 120 })
+      sc.value = withTiming(1.12, { duration: 100 })
     })
     .onUpdate((e) => {
-      tx.value = e.translationX
-      ty.value = e.translationY
+      posX.value = startX.value + e.translationX
+      posY.value = startY.value + e.translationY
     })
     .onEnd((e) => {
       const moved = Math.abs(e.translationX) > 6 || Math.abs(e.translationY) > 6
+
       if (moved) {
-        const newCX = absX + LIGHT_W / 2 + tx.value
-        const newCY = absY + LIGHT_H / 2 + ty.value
-        const nx = Math.max(0.04, Math.min(0.96, newCX / stageW))
-        const ny = Math.max(0.04, Math.min(0.96, newCY / STAGE_HEIGHT))
+        // Convert back to normalised coords using the HEAD point
+        const headCX = posX.value + ICON_W / 2
+        const headCY = posY.value + ICON_H * HEAD_Y_FRAC
+
+        const nx = Math.max(0.04, Math.min(0.96, headCX / stageW))
+        const ny = Math.max(0.04, Math.min(0.88, headCY / STAGE_HEIGHT))
+
+        // Snap icon to clamped position immediately
+        posX.value = nx * stageW - ICON_W / 2
+        posY.value = ny * STAGE_HEIGHT - ICON_H * HEAD_Y_FRAC
+
         runOnJS(onMove)(nx, ny)
       } else {
+        // Short tap — restore position & open config
+        posX.value = withSpring(startX.value, { damping: 20 })
+        posY.value = withSpring(startY.value, { damping: 20 })
         runOnJS(onTap)()
       }
-      tx.value = withSpring(0, { damping: 20 })
-      ty.value = withSpring(0, { damping: 20 })
-      sc.value = withSpring(1)
+
+      sc.value = withSpring(1, { damping: 18 })
       dragging.value = false
     })
 
   const animStyle = useAnimatedStyle(() => ({
     position: 'absolute' as const,
-    left: absX + tx.value,
-    top: absY + ty.value,
-    width: LIGHT_W,
-    height: LIGHT_H,
+    left: posX.value,
+    top: posY.value,
+    width: ICON_W,
+    height: ICON_H,
     transform: [{ scale: sc.value }],
     zIndex: dragging.value ? 20 : 1,
-    elevation: dragging.value ? 12 : 3,
   }))
+
+  const ratio = intensity / 100
+  const dr = Math.min(255, Math.round((r + w) * ratio))
+  const dg = Math.min(255, Math.round((g + w) * ratio))
+  const db = Math.min(255, Math.round((b + w) * ratio))
+  const isDark = dr * 0.299 + dg * 0.587 + db * 0.114 < 130
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View
-        style={[
-          styles.lightNode,
-          animStyle,
-          {
-            backgroundColor: color,
-            shadowColor: color === '#252525' ? '#000' : color,
-          },
-        ]}
-      >
-        {/* Glow indicator dot */}
+      <Animated.View style={animStyle}>
+        <StageLightIcon
+          r={r} g={g} b={b} w={w}
+          intensity={intensity}
+          isOn={isOn}
+          width={ICON_W}
+          height={ICON_H}
+        />
+        {/* Name badge below icon */}
         <View
           style={[
-            styles.glowDot,
-            { backgroundColor: color === '#252525' ? '#444' : '#fff' },
-          ]}
-        />
-        <Text
-          style={[styles.lightName, { color: isDark ? '#ffffff' : '#000000' }]}
-          numberOfLines={1}
-        >
-          {light.name}
-        </Text>
-        <Text
-          style={[
-            styles.lightMeta,
-            { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' },
+            styles.nameBadge,
+            {
+              backgroundColor: isOn
+                ? `rgba(${dr},${dg},${db},0.25)`
+                : 'rgba(40,40,40,0.85)',
+            },
           ]}
         >
-          ch{light.dmxAddress} · {light.channelMode}
-        </Text>
+          <Text
+            style={[styles.nameBadgeText, { color: isOn && !isDark ? '#000' : '#fff' }]}
+            numberOfLines={1}
+          >
+            {light.name}
+          </Text>
+        </View>
       </Animated.View>
     </GestureDetector>
   )
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function computeColor(state: LightState): string {
-  const ratio = state.intensity / 100
-  const r = Math.min(255, Math.round((state.r + state.w) * ratio))
-  const g = Math.min(255, Math.round((state.g + state.w) * ratio))
-  const b = Math.min(255, Math.round((state.b + state.w) * ratio))
-  if (r === 0 && g === 0 && b === 0) return '#252525'
-  return `rgb(${r},${g},${b})`
-}
-
-function isColorDark(rgb: string): boolean {
-  const m = rgb.match(/\d+/g)
-  if (!m || m.length < 3) return true
-  return parseInt(m[0]) * 0.299 + parseInt(m[1]) * 0.587 + parseInt(m[2]) * 0.114 < 140
 }
 
 const styles = StyleSheet.create({
@@ -210,79 +302,67 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#152030',
+    borderColor: '#12213a',
   },
-  gridLineV: {
+  gridV: {
     position: 'absolute',
     top: 0,
     width: 1,
     height: STAGE_HEIGHT,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  gridLineH: {
+  gridH: {
     position: 'absolute',
     left: 0,
     height: 1,
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  frontBar: {
+  audienceBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 24,
-    backgroundColor: 'rgba(255,255,255,0.035)',
+    height: 22,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  frontLabel: {
+  audienceLabel: {
     fontSize: 8,
-    color: 'rgba(255,255,255,0.2)',
-    letterSpacing: 2,
+    color: 'rgba(255,255,255,0.18)',
+    letterSpacing: 2.5,
     fontWeight: '700',
   },
-  emptyStage: {
+  emptyMsg: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyStageText: {
-    color: 'rgba(255,255,255,0.15)',
+  emptyText: {
+    color: 'rgba(255,255,255,0.12)',
     fontSize: 13,
   },
-  dragHint: {
+  hint: {
     fontSize: 11,
-    color: '#3a3a3a',
+    color: '#333',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 4,
   },
-  lightNode: {
-    borderRadius: 9,
-    padding: 7,
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 10,
+  nameBadge: {
+    marginTop: -4,
+    alignSelf: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    maxWidth: ICON_W + 20,
   },
-  glowDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 4,
-    opacity: 0.8,
-  },
-  lightName: {
-    fontSize: 11,
+  nameBadgeText: {
+    fontSize: 9,
     fontWeight: '700',
-    lineHeight: 13,
-  },
-  lightMeta: {
-    fontSize: 8,
-    marginTop: 1,
-    lineHeight: 10,
+    textAlign: 'center',
   },
 })
