@@ -26,12 +26,13 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single-page",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-dev-client"
+      "expo-dev-client",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

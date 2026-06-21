@@ -1,134 +1,198 @@
 import React, { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
-import { FAB, Portal, Dialog, TextInput, Button, Text, RadioButton } from 'react-native-paper'
+import { FAB, Portal, Dialog, TextInput, Button, Text } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
 import { BlackoutButton } from '../../src/components/BlackoutButton'
-import { CategoryFolder } from '../../src/components/CategoryFolder'
-import { useFixturesStore, type Fixture } from '../../src/store/fixturesStore'
-import { useSceneStore } from '../../src/store/sceneStore'
+import { AmbianceCard } from '../../src/components/AmbianceCard'
+import { useAmbiancesStore } from '../../src/store/ambiancesStore'
+import { useRouter } from 'expo-router'
 
 export default function ControlScreen() {
   const router = useRouter()
-  const fixtures = useFixturesStore((s) => s.fixtures)
-  const categories = useFixturesStore((s) => s.categories)
-  const addFixture = useFixturesStore((s) => s.addFixture)
-  const addCategory = useFixturesStore((s) => s.addCategory)
-  const selectFixture = useSceneStore((s) => s.selectFixture)
+  const ambiances = useAmbiancesStore((s) => s.ambiances)
+  const activeAmbianceId = useAmbiancesStore((s) => s.activeAmbianceId)
+  const activateAmbiance = useAmbiancesStore((s) => s.activateAmbiance)
+  const deactivateAll = useAmbiancesStore((s) => s.deactivateAll)
+  const addAmbiance = useAmbiancesStore((s) => s.addAmbiance)
 
-  const [fabOpen, setFabOpen] = useState(false)
-  const [addDialog, setAddDialog] = useState<'fixture' | 'category' | null>(null)
+  const [newDialog, setNewDialog] = useState(false)
   const [nameInput, setNameInput] = useState('')
-  const [selectedCategoryId, setSelectedCategoryId] = useState('')
+  const [longPressMenu, setLongPressMenu] = useState<string | null>(null)
+  const removeAmbiance = useAmbiancesStore((s) => s.removeAmbiance)
+  const renameAmbiance = useAmbiancesStore((s) => s.renameAmbiance)
+  const duplicateAmbiance = useAmbiancesStore((s) => s.duplicateAmbiance)
+  const [renameDialog, setRenameDialog] = useState<{ id: string; name: string } | null>(null)
 
-  function handleFixtureLongPress(fixture: Fixture) {
-    selectFixture(fixture.id)
-    router.push('/(tabs)/editor')
-  }
-
-  function openAddFixture() {
-    setNameInput('')
-    setSelectedCategoryId(categories[0]?.id ?? '')
-    setAddDialog('fixture')
-    setFabOpen(false)
-  }
-
-  function openAddCategory() {
-    setNameInput('')
-    setAddDialog('category')
-    setFabOpen(false)
-  }
-
-  function confirmAdd() {
-    if (!nameInput.trim()) return
-    if (addDialog === 'fixture') {
-      addFixture(nameInput.trim(), 1, 'RGB', selectedCategoryId || (categories[0]?.id ?? ''))
+  function handleCardPress(id: string) {
+    if (activeAmbianceId === id) {
+      deactivateAll()
     } else {
-      addCategory(nameInput.trim())
+      activateAmbiance(id)
     }
-    setAddDialog(null)
   }
+
+  function handleCardLongPress(id: string) {
+    setLongPressMenu(id)
+  }
+
+  function confirmCreate() {
+    if (!nameInput.trim()) return
+    const id = addAmbiance(nameInput.trim())
+    setNameInput('')
+    setNewDialog(false)
+    // Navigate to editor with this new ambiance pre-selected
+    router.push({ pathname: '/(tabs)/editor', params: { ambianceId: id } })
+  }
+
+  const menuAmbiance = ambiances.find((a) => a.id === longPressMenu)
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <BlackoutButton />
 
-        {categories.map((cat) => {
-          const catFixtures = fixtures.filter((f) => f.categoryId === cat.id)
-          return (
-            <CategoryFolder
-              key={cat.id}
-              category={cat}
-              fixtures={catFixtures}
-              onFixtureLongPress={handleFixtureLongPress}
-            />
-          )
-        })}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>AMBIANCES</Text>
+          <Text style={styles.sectionHint}>Tap to activate · Long press for options</Text>
+        </View>
 
-        {/* Bottom padding for FAB */}
+        <View style={styles.grid}>
+          {ambiances.map((amb) => (
+            <View key={amb.id} style={styles.cardWrapper}>
+              <AmbianceCard
+                ambiance={amb}
+                isActive={activeAmbianceId === amb.id}
+                onPress={() => handleCardPress(amb.id)}
+                onLongPress={() => handleCardLongPress(amb.id)}
+              />
+            </View>
+          ))}
+        </View>
+
         <View style={{ height: 80 }} />
       </ScrollView>
 
+      {/* FAB to add ambiance */}
       <Portal>
-        <FAB.Group
-          open={fabOpen}
-          icon={fabOpen ? 'close' : 'plus'}
-          actions={[
-            {
-              icon: 'lightbulb-outline',
-              label: 'Add Light',
-              onPress: openAddFixture,
-            },
-            {
-              icon: 'folder-plus',
-              label: 'Add Category',
-              onPress: openAddCategory,
-            },
-          ]}
-          onStateChange={({ open }) => setFabOpen(open)}
-          fabStyle={styles.fab}
+        <FAB
+          icon="plus"
+          style={styles.fab}
           color="#ffffff"
+          onPress={() => {
+            setNameInput('')
+            setNewDialog(true)
+          }}
         />
       </Portal>
 
-      {/* Add dialog */}
+      {/* New ambiance dialog */}
       <Portal>
-        <Dialog visible={addDialog !== null} onDismiss={() => setAddDialog(null)}>
-          <Dialog.Title>
-            {addDialog === 'fixture' ? 'Add Light' : 'Add Category'}
-          </Dialog.Title>
+        <Dialog visible={newDialog} onDismiss={() => setNewDialog(false)}>
+          <Dialog.Title>New Ambiance</Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Name"
+              label="Ambiance Name"
               value={nameInput}
               onChangeText={setNameInput}
               mode="outlined"
               autoFocus
+              placeholder="e.g. Blue Wash, Party Mode…"
             />
-            {addDialog === 'fixture' && categories.length > 0 && (
-              <View style={styles.categoryPicker}>
-                <Text style={styles.categoryLabel}>Category</Text>
-                <RadioButton.Group
-                  value={selectedCategoryId}
-                  onValueChange={setSelectedCategoryId}
-                >
-                  {categories.map((cat) => (
-                    <RadioButton.Item
-                      key={cat.id}
-                      label={cat.name}
-                      value={cat.id}
-                      labelStyle={styles.radioLabel}
-                    />
-                  ))}
-                </RadioButton.Group>
-              </View>
-            )}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setAddDialog(null)}>Cancel</Button>
-            <Button onPress={confirmAdd} disabled={!nameInput.trim()}>
-              Add
+            <Button onPress={() => setNewDialog(false)}>Cancel</Button>
+            <Button onPress={confirmCreate} disabled={!nameInput.trim()}>
+              Create & Edit
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Long-press options dialog */}
+      <Portal>
+        <Dialog
+          visible={!!longPressMenu}
+          onDismiss={() => setLongPressMenu(null)}
+        >
+          <Dialog.Title>{menuAmbiance?.name ?? ''}</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.menuOptions}>
+              <Button
+                icon="pencil"
+                mode="text"
+                onPress={() => {
+                  router.push({
+                    pathname: '/(tabs)/editor',
+                    params: { ambianceId: longPressMenu! },
+                  })
+                  setLongPressMenu(null)
+                }}
+              >
+                Edit Colors
+              </Button>
+              <Button
+                icon="rename-box"
+                mode="text"
+                onPress={() => {
+                  setRenameDialog({ id: longPressMenu!, name: menuAmbiance?.name ?? '' })
+                  setLongPressMenu(null)
+                }}
+              >
+                Rename
+              </Button>
+              <Button
+                icon="content-copy"
+                mode="text"
+                onPress={() => {
+                  duplicateAmbiance(longPressMenu!)
+                  setLongPressMenu(null)
+                }}
+              >
+                Duplicate
+              </Button>
+              <Button
+                icon="delete"
+                mode="text"
+                textColor="#e74c3c"
+                onPress={() => {
+                  removeAmbiance(longPressMenu!)
+                  setLongPressMenu(null)
+                }}
+              >
+                Delete
+              </Button>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setLongPressMenu(null)}>Cancel</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Rename dialog */}
+      <Portal>
+        <Dialog visible={!!renameDialog} onDismiss={() => setRenameDialog(null)}>
+          <Dialog.Title>Rename Ambiance</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Name"
+              value={renameDialog?.name ?? ''}
+              onChangeText={(t) => setRenameDialog((d) => d ? { ...d, name: t } : null)}
+              mode="outlined"
+              autoFocus
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setRenameDialog(null)}>Cancel</Button>
+            <Button
+              onPress={() => {
+                if (renameDialog) {
+                  renameAmbiance(renameDialog.id, renameDialog.name)
+                  setRenameDialog(null)
+                }
+              }}
+            >
+              Save
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -148,18 +212,39 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 8,
   },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#555',
+    letterSpacing: 1.5,
+  },
+  sectionHint: {
+    fontSize: 10,
+    color: '#444',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 10,
+  },
+  cardWrapper: {
+    width: '50%',
+  },
   fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
     backgroundColor: '#ff6b35',
   },
-  categoryPicker: {
-    marginTop: 12,
-  },
-  categoryLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 4,
-  },
-  radioLabel: {
-    color: '#ffffff',
+  menuOptions: {
+    gap: 4,
   },
 })

@@ -2,11 +2,11 @@ import React from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Text, TouchableRipple } from 'react-native-paper'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { useSceneStore } from '../store/sceneStore'
+import { useAmbiancesStore } from '../store/ambiancesStore'
 
 export function BlackoutButton() {
-  const blackout = useSceneStore((s) => s.blackout)
-  const toggleBlackout = useSceneStore((s) => s.toggleBlackout)
+  const blackout = useAmbiancesStore((s) => s.blackout)
+  const toggleBlackout = useAmbiancesStore((s) => s.toggleBlackout)
   const scale = useSharedValue(1)
 
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))

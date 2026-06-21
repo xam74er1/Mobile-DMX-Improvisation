@@ -1,174 +1,244 @@
-import React, { useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, View } from 'react-native'
-import { Text, Button, Switch, Divider, Chip } from 'react-native-paper'
+import React, { useState, useEffect } from 'react'
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native'
+import { Text, Button, Switch, Divider, Chip, Portal, Dialog, TextInput, IconButton } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { MaterialIcons } from '@expo/vector-icons'
+import { useLocalSearchParams } from 'expo-router'
 import { SimpleColorPicker } from '../../src/components/SimpleColorPicker'
 import { WheelColorPicker } from '../../src/components/WheelColorPicker'
 import { IntensitySlider } from '../../src/components/IntensitySlider'
-import { useSceneStore } from '../../src/store/sceneStore'
-import { useFixturesStore } from '../../src/store/fixturesStore'
-import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
+import { useAmbiancesStore, defaultLightState } from '../../src/store/ambiancesStore'
+import { useLightsStore } from '../../src/store/lightsStore'
 
 export default function EditorScreen() {
-  const fixtures = useFixturesStore((s) => s.fixtures)
-  const selectedFixtureId = useSceneStore((s) => s.selectedFixtureId)
-  const selectFixture = useSceneStore((s) => s.selectFixture)
-  const setFixtureState = useSceneStore((s) => s.setFixtureState)
-  const setAllColor = useSceneStore((s) => s.setAllColor)
-  const copyColor = useSceneStore((s) => s.copyColor)
-  const pasteColor = useSceneStore((s) => s.pasteColor)
-  const copiedColor = useSceneStore((s) => s.copiedColor)
-  const channels = useSceneStore((s) => s.channels)
-  const { ensureFixture } = useSceneStore()
+  const params = useLocalSearchParams<{ ambianceId?: string }>()
 
-  const [allMode, setAllMode] = useState(false)
+  const ambiances = useAmbiancesStore((s) => s.ambiances)
+  const setLightState = useAmbiancesStore((s) => s.setLightState)
+  const getLightState = useAmbiancesStore((s) => s.getLightState)
+  const renameAmbiance = useAmbiancesStore((s) => s.renameAmbiance)
 
-  const activeFixtureId = selectedFixtureId ?? fixtures[0]?.id ?? null
-  const activeState = activeFixtureId ? channels[activeFixtureId] : null
+  const lights = useLightsStore((s) => s.lights)
 
+  // Which ambiance is being edited
+  const [editingId, setEditingId] = useState<string>(
+    params.ambianceId ?? ambiances[0]?.id ?? '',
+  )
+  // Which light is currently selected for color editing
+  const [selectedLightId, setSelectedLightId] = useState<string>(lights[0]?.id ?? '')
+  // All-lights toggle
+  const [allLights, setAllLights] = useState(false)
+  // Rename dialog
+  const [renameDialog, setRenameDialog] = useState(false)
+  const [renameInput, setRenameInput] = useState('')
+
+  // Sync if params change (navigated from Panel 1)
   useEffect(() => {
-    if (activeFixtureId) ensureFixture(activeFixtureId)
-  }, [activeFixtureId])
+    if (params.ambianceId) setEditingId(params.ambianceId)
+  }, [params.ambianceId])
 
-  const r = activeState?.r ?? 255
-  const g = activeState?.g ?? 0
-  const b = activeState?.b ?? 0
-  const w = activeState?.w ?? 0
-  const intensity = activeState?.intensity ?? 100
-
-  const currentHex = rgbToHex(r, g, b)
-
-  function applyColor(nr: number, ng: number, nb: number, nw: number) {
-    if (allMode) {
-      setAllColor({ r: nr, g: ng, b: nb, w: nw })
-    } else if (activeFixtureId) {
-      setFixtureState(activeFixtureId, { r: nr, g: ng, b: nb, w: nw })
+  // Auto-select first light when lights change
+  useEffect(() => {
+    if (lights.length > 0 && !lights.find((l) => l.id === selectedLightId)) {
+      setSelectedLightId(lights[0].id)
     }
-  }
+  }, [lights])
 
-  function applyIntensity(v: number) {
-    if (allMode) {
-      setAllColor({ r, g, b, w }, v)
-    } else if (activeFixtureId) {
-      setFixtureState(activeFixtureId, { intensity: v })
+  const editingAmbiance = ambiances.find((a) => a.id === editingId)
+
+  const activeState = editingId && selectedLightId
+    ? getLightState(editingId, selectedLightId)
+    : defaultLightState()
+
+  const { r, g, b, w, intensity, isOn } = activeState
+
+  function applyPatch(patch: Partial<typeof activeState>) {
+    if (allLights) {
+      for (const light of lights) {
+        setLightState(editingId, light.id, patch)
+      }
+    } else if (selectedLightId) {
+      setLightState(editingId, selectedLightId, patch)
     }
-  }
-
-  function handleWheelColor(nr: number, ng: number, nb: number) {
-    applyColor(nr, ng, nb, w)
   }
 
   function handleSwatchColor(nr: number, ng: number, nb: number, nw: number) {
-    applyColor(nr, ng, nb, nw)
+    applyPatch({ r: nr, g: ng, b: nb, w: nw, isOn: true })
   }
 
-  const selectedPreset = DEFAULT_COLORS.find(
-    (c) => c.r === r && c.g === g && c.b === b && c.w === w,
-  )
+  function handleWheelColor(nr: number, ng: number, nb: number) {
+    applyPatch({ r: nr, g: ng, b: nb, isOn: true })
+  }
+
+  const currentHex = rgbToHex(r, g, b)
+
+  if (ambiances.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No ambiances yet.</Text>
+          <Text style={styles.emptyHint}>Go to the Control tab and tap + to create one.</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="titleLarge" style={styles.title}>
-            Light Editor
-          </Text>
-          <View style={styles.allModeRow}>
-            <Text style={styles.allModeLabel}>All Lights</Text>
-            <Switch value={allMode} onValueChange={setAllMode} color="#ff6b35" />
+
+        {/* ── Ambiance selector ── */}
+        <View style={styles.ambHeader}>
+          <Text style={styles.sectionLabel}>EDITING AMBIANCE</Text>
+          <IconButton
+            icon="pencil"
+            size={16}
+            iconColor="#ff6b35"
+            onPress={() => {
+              setRenameInput(editingAmbiance?.name ?? '')
+              setRenameDialog(true)
+            }}
+          />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {ambiances.map((a) => (
+            <Chip
+              key={a.id}
+              selected={a.id === editingId}
+              onPress={() => setEditingId(a.id)}
+              selectedColor="#ff6b35"
+              style={styles.chip}
+              compact
+            >
+              {a.name}
+            </Chip>
+          ))}
+        </ScrollView>
+
+        <Divider style={styles.divider} />
+
+        {/* ── Light selector ── */}
+        <View style={styles.lightSelectorHeader}>
+          <Text style={styles.sectionLabel}>SELECT LIGHT</Text>
+          <View style={styles.allLightsRow}>
+            <Text style={styles.allLightsLabel}>All Lights</Text>
+            <Switch value={allLights} onValueChange={setAllLights} color="#ff6b35" />
           </View>
         </View>
 
-        {/* Fixture selector */}
-        {!allMode && fixtures.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.fixtureRow}
-          >
-            {fixtures.map((f) => (
-              <Chip
-                key={f.id}
-                selected={f.id === activeFixtureId}
-                onPress={() => selectFixture(f.id)}
-                style={styles.fixtureChip}
-                selectedColor="#ff6b35"
-                compact
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lightTileRow}>
+          {lights.map((light) => {
+            const state = getLightState(editingId, light.id)
+            const tileColor = getStateColor(state)
+            const isSelected = light.id === selectedLightId && !allLights
+            return (
+              <Pressable
+                key={light.id}
+                onPress={() => {
+                  setSelectedLightId(light.id)
+                  setAllLights(false)
+                }}
+                style={[
+                  styles.lightTile,
+                  { backgroundColor: tileColor },
+                  isSelected && styles.lightTileSelected,
+                ]}
               >
-                {f.name}
-              </Chip>
-            ))}
-          </ScrollView>
+                <View style={[styles.lightOnDot, { backgroundColor: state.isOn ? '#fff' : '#444' }]} />
+                <Text style={styles.lightTileName} numberOfLines={2}>
+                  {light.name}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </ScrollView>
+
+        {lights.length === 0 && (
+          <Text style={styles.noLightsHint}>Add lights in Settings → Lights tab first.</Text>
         )}
 
-        {allMode && (
-          <View style={styles.allModeBanner}>
-            <MaterialIcons name="info-outline" size={16} color="#ff6b35" />
-            <Text style={styles.allModeBannerText}>
-              Changes apply to all lights simultaneously
+        <Divider style={styles.divider} />
+
+        {/* ── On/Off for selected light ── */}
+        {!allLights && selectedLightId && (
+          <View style={styles.onOffRow}>
+            <Text style={styles.sectionLabel}>
+              {lights.find((l) => l.id === selectedLightId)?.name ?? 'Light'}
             </Text>
+            <View style={styles.onOffToggle}>
+              <Text style={styles.onOffLabel}>{isOn ? 'ON' : 'OFF'}</Text>
+              <Switch
+                value={isOn}
+                onValueChange={(v) => applyPatch({ isOn: v })}
+                color="#ff6b35"
+              />
+            </View>
           </View>
         )}
 
-        <Divider style={styles.divider} />
-
-        {/* Color swatches */}
-        <Text style={styles.sectionLabel}>QUICK COLORS</Text>
-        <SimpleColorPicker
-          onSelectColor={handleSwatchColor}
-          selectedHex={selectedPreset?.hex}
-        />
+        {/* ── Quick colors ── */}
+        <Text style={styles.sectionLabel2}>QUICK COLORS</Text>
+        <SimpleColorPicker onSelectColor={handleSwatchColor} selectedHex={undefined} />
 
         <Divider style={styles.divider} />
 
-        {/* Chromatic wheel */}
-        <Text style={styles.sectionLabel}>COLOR WHEEL</Text>
+        {/* ── Wheel ── */}
+        <Text style={styles.sectionLabel2}>COLOR WHEEL</Text>
         <WheelColorPicker currentHex={currentHex} onColorChange={handleWheelColor} />
 
-        {/* White channel slider */}
+        {/* White channel */}
         <IntensitySlider
-          value={w / 2.55}
-          onChange={(v) => applyColor(r, g, b, Math.round(v * 2.55))}
+          value={(w / 255) * 100}
+          onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })}
           label="White Channel"
         />
 
         <Divider style={styles.divider} />
 
-        {/* Intensity */}
-        <Text style={styles.sectionLabel}>INTENSITY</Text>
-        <IntensitySlider value={intensity} onChange={applyIntensity} />
-
-        <Divider style={styles.divider} />
-
-        {/* Copy / Paste */}
-        {!allMode && activeFixtureId && (
-          <View style={styles.copyRow}>
-            <Button
-              mode="outlined"
-              icon="content-copy"
-              onPress={() => copyColor(activeFixtureId)}
-              style={styles.copyBtn}
-            >
-              Copy Color
-            </Button>
-            <Button
-              mode="outlined"
-              icon="content-paste"
-              onPress={() => pasteColor(activeFixtureId)}
-              disabled={!copiedColor}
-              style={styles.copyBtn}
-            >
-              Paste Color
-            </Button>
-          </View>
-        )}
+        {/* ── Intensity ── */}
+        <Text style={styles.sectionLabel2}>INTENSITY</Text>
+        <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Rename dialog */}
+      <Portal>
+        <Dialog visible={renameDialog} onDismiss={() => setRenameDialog(false)}>
+          <Dialog.Title>Rename Ambiance</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Name"
+              value={renameInput}
+              onChangeText={setRenameInput}
+              mode="outlined"
+              autoFocus
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setRenameDialog(false)}>Cancel</Button>
+            <Button
+              onPress={() => {
+                if (renameInput.trim()) renameAmbiance(editingId, renameInput.trim())
+                setRenameDialog(false)
+              }}
+            >
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   )
+}
+
+function getStateColor(state: ReturnType<typeof defaultLightState>): string {
+  if (!state.isOn) return '#1c1c1c'
+  const ratio = state.intensity / 100
+  const r = Math.min(255, Math.round((state.r + state.w) * ratio))
+  const g = Math.min(255, Math.round((state.g + state.w) * ratio))
+  const b = Math.min(255, Math.round((state.b + state.w) * ratio))
+  if (r === 0 && g === 0 && b === 0) return '#1c1c1c'
+  return `rgb(${r},${g},${b})`
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -181,57 +251,23 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  content: {
-    paddingTop: 8,
-  },
-  header: {
+  safe: { flex: 1, backgroundColor: '#0a0a0a' },
+  content: { paddingTop: 8 },
+  ambHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  title: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  allModeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  allModeLabel: {
-    color: '#aaaaaa',
-    fontSize: 13,
-  },
-  fixtureRow: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingBottom: 8,
-  },
-  fixtureChip: {
-    backgroundColor: '#1a1a1a',
-  },
-  allModeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-  },
-  allModeBannerText: {
-    color: '#ff6b35',
-    fontSize: 12,
-  },
-  divider: {
-    backgroundColor: '#1e1e1e',
-    marginVertical: 8,
+    paddingLeft: 16,
+    paddingRight: 4,
+    paddingTop: 12,
   },
   sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#555',
+    letterSpacing: 1.5,
+  },
+  sectionLabel2: {
     fontSize: 11,
     fontWeight: '700',
     color: '#555',
@@ -240,13 +276,67 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  copyRow: {
-    flexDirection: 'row',
-    gap: 12,
+  chipRow: {
     paddingHorizontal: 16,
-    marginVertical: 8,
+    gap: 8,
+    paddingVertical: 8,
   },
-  copyBtn: {
-    flex: 1,
+  chip: { backgroundColor: '#1a1a1a' },
+  divider: { backgroundColor: '#1e1e1e', marginVertical: 8 },
+  lightSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
+  allLightsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  allLightsLabel: { fontSize: 13, color: '#aaa' },
+  lightTileRow: {
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingVertical: 12,
+  },
+  lightTile: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    padding: 8,
+    justifyContent: 'flex-end',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  lightTileSelected: {
+    borderColor: '#ffffff',
+  },
+  lightOnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  lightTileName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  noLightsHint: {
+    color: '#555',
+    fontSize: 13,
+    textAlign: 'center',
+    marginVertical: 16,
+    paddingHorizontal: 16,
+  },
+  onOffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  onOffToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  onOffLabel: { color: '#aaa', fontSize: 13 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  emptyText: { color: '#fff', fontSize: 16, marginBottom: 8 },
+  emptyHint: { color: '#666', fontSize: 13, textAlign: 'center' },
 })
