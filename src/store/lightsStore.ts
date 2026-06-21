@@ -15,9 +15,11 @@ export interface Light {
   name: string
   dmxAddress: number
   channelMode: ChannelMode
-  sceneX: number      // 0.0–1.0 fraction of stage width
-  sceneY: number      // 0.0–1.0 fraction of stage height
-  defaultColor: LightColor  // shown when no ambiance is active; starting color in new ambiances
+  sceneX: number      // 0.0–1.0 fraction of stage width  (lens centre)
+  sceneY: number      // 0.0–1.0 fraction of stage height (lens centre)
+  rotation: number    // degrees — 0 = beam toward audience (↓), 90 = right, 180 = back
+  beamWidth: number   // 0.3 (tight spot) → 2.5 (wide wash), default 1.0
+  defaultColor: LightColor
 }
 
 function makeId() {
@@ -25,9 +27,17 @@ function makeId() {
 }
 
 const SPREAD_POS = [
-  [0.5, 0.3],
-  [0.25, 0.3], [0.75, 0.3],
-  [0.17, 0.3], [0.5, 0.3], [0.83, 0.3],
+  [0.5,  0.30],
+  [0.25, 0.30], [0.75, 0.30],
+  [0.17, 0.30], [0.50, 0.30], [0.83, 0.30],
+]
+const DEFAULT_COLORS_CYCLE: LightColor[] = [
+  { r: 255, g: 255, b: 255, w: 0 },
+  { r: 255, g: 0,   b: 0,   w: 0 },
+  { r: 0,   g: 68,  b: 255, w: 0 },
+  { r: 0,   g: 200, b: 0,   w: 0 },
+  { r: 255, g: 120, b: 0,   w: 0 },
+  { r: 200, g: 0,   b: 200, w: 0 },
 ]
 
 const DEFAULT_LIGHTS: Light[] = [
@@ -37,7 +47,9 @@ const DEFAULT_LIGHTS: Light[] = [
     dmxAddress: 1,
     channelMode: 'RGB',
     sceneX: 0.5,
-    sceneY: 0.3,
+    sceneY: 0.30,
+    rotation: 0,
+    beamWidth: 1.0,
     defaultColor: { r: 255, g: 255, b: 255, w: 0 },
   },
 ]
@@ -60,18 +72,13 @@ export const useLightsStore = create<LightsState>()(
         const id = `light-${makeId()}`
         const idx = get().lights.length
         const [sx, sy] = SPREAD_POS[idx % SPREAD_POS.length] ?? [0.5, 0.3]
-        // Each new light gets a distinct default color
-        const DEFAULT_COLORS: LightColor[] = [
-          { r: 255, g: 0,   b: 0,   w: 0 },
-          { r: 0,   g: 68,  b: 255, w: 0 },
-          { r: 0,   g: 200, b: 0,   w: 0 },
-          { r: 255, g: 120, b: 0,   w: 0 },
-          { r: 200, g: 0,   b: 200, w: 0 },
-          { r: 0,   g: 200, b: 200, w: 0 },
-        ]
-        const defaultColor = DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
+        const defaultColor = DEFAULT_COLORS_CYCLE[idx % DEFAULT_COLORS_CYCLE.length]
         set((s) => ({
-          lights: [...s.lights, { id, name, dmxAddress, channelMode, sceneX: sx, sceneY: sy, defaultColor }],
+          lights: [
+            ...s.lights,
+            { id, name, dmxAddress, channelMode, sceneX: sx, sceneY: sy,
+              rotation: 0, beamWidth: 1.0, defaultColor },
+          ],
         }))
         return id
       },
@@ -102,14 +109,15 @@ export const useLightsStore = create<LightsState>()(
     {
       name: 'dmx-lights',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 2,
       migrate: (state: any) => ({
         ...state,
-        // Back-fill defaultColor for lights that existed before this field was added
         lights: (state.lights ?? []).map((l: any) => ({
           defaultColor: { r: 255, g: 255, b: 255, w: 0 },
           sceneX: 0.5,
           sceneY: 0.3,
+          rotation: 0,
+          beamWidth: 1.0,
           ...l,
         })),
       }),

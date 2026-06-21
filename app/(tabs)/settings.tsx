@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { ScrollView, StyleSheet, View, Alert, Pressable } from 'react-native'
+import Slider from '@react-native-community/slider'
 import {
   Text, TextInput, Button, IconButton, Portal, Dialog,
   SegmentedButtons, Menu, Switch, Chip,
@@ -241,13 +242,17 @@ function LightsTab() {
   const [editMode, setEditMode] = useState<ChannelMode>('RGB')
   const [editModeMenuVisible, setEditModeMenuVisible] = useState(false)
   const [editDefaultColor, setEditDefaultColor] = useState<LightColor>({ r: 255, g: 255, b: 255, w: 0 })
+  const [editRotation, setEditRotation] = useState(0)
+  const [editBeamWidth, setEditBeamWidth] = useState(1.0)
 
   function openEdit(light: Light) {
     setEditDialog(light)
     setEditName(light.name)
     setEditAddr(String(light.dmxAddress))
     setEditMode(light.channelMode)
-    setEditDefaultColor(light.defaultColor)
+    setEditDefaultColor(light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 })
+    setEditRotation(light.rotation ?? 0)
+    setEditBeamWidth(light.beamWidth ?? 1.0)
   }
 
   function confirmEdit() {
@@ -258,6 +263,8 @@ function LightsTab() {
       dmxAddress: addr >= 1 && addr <= 512 ? addr : editDialog.dmxAddress,
       channelMode: editMode,
       defaultColor: editDefaultColor,
+      rotation: Math.round(editRotation),
+      beamWidth: Math.round(editBeamWidth * 10) / 10,
     })
     setEditDialog(null)
   }
@@ -399,6 +406,39 @@ function LightsTab() {
                 ))}
               </Menu>
 
+              {/* ── Rotation ── */}
+              <Text style={[styles.dialogLabel, { marginTop: 14 }]}>
+                Beam Direction: {Math.round(editRotation)}°
+                {'  '}{rotationLabel(editRotation)}
+              </Text>
+              <Slider
+                value={editRotation}
+                onValueChange={setEditRotation}
+                minimumValue={0}
+                maximumValue={359}
+                step={1}
+                minimumTrackTintColor="#ff6b35"
+                maximumTrackTintColor="#333"
+                thumbTintColor="#ff6b35"
+                style={styles.slider}
+              />
+
+              {/* ── Beam width ── */}
+              <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
+                Beam Width: {beamWidthLabel(editBeamWidth)}
+              </Text>
+              <Slider
+                value={editBeamWidth}
+                onValueChange={setEditBeamWidth}
+                minimumValue={0.3}
+                maximumValue={2.5}
+                step={0.1}
+                minimumTrackTintColor="#ff6b35"
+                maximumTrackTintColor="#333"
+                thumbTintColor="#ff6b35"
+                style={styles.slider}
+              />
+
               {/* ── Default color picker ── */}
               <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Default Color (shown when no ambiance active)</Text>
               <View style={styles.colorSwatches}>
@@ -440,6 +480,25 @@ function LightsTab() {
       </Portal>
     </View>
   )
+}
+
+function rotationLabel(deg: number): string {
+  const d = ((deg % 360) + 360) % 360
+  if (d < 23 || d >= 338) return '↓ Audience'
+  if (d < 68)  return '↙'
+  if (d < 113) return '← Left'
+  if (d < 158) return '↖'
+  if (d < 203) return '↑ Back'
+  if (d < 248) return '↗'
+  if (d < 293) return '→ Right'
+  return '↘'
+}
+
+function beamWidthLabel(v: number): string {
+  if (v < 0.65) return `Tight spot (${v.toFixed(1)}×)`
+  if (v < 1.15) return `Medium (${v.toFixed(1)}×)`
+  if (v < 1.75) return `Wide (${v.toFixed(1)}×)`
+  return `Full wash (${v.toFixed(1)}×)`
 }
 
 function delay(ms: number) {
@@ -514,4 +573,5 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: 'transparent',
   },
   colorSwatchSelected: { borderColor: '#ffffff' },
+  slider: { width: '100%', height: 36, marginBottom: 2 },
 })

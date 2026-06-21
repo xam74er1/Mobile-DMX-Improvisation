@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -9,25 +9,35 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import Svg, {
-  Path, Ellipse, Rect, Circle, Defs,
-  RadialGradient, Stop, G,
+  Path, Ellipse, Rect, Circle, Defs, RadialGradient, Stop, G,
 } from 'react-native-svg'
 import type { Light } from '../store/lightsStore'
 import type { LightState } from '../store/ambiancesStore'
 
-// ── Layout constants ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Layout constants
+// ─────────────────────────────────────────────────────────────
 export const STAGE_HEIGHT = 240
-const ICON_W = 48    // total icon width  (SVG viewBox width)
-const ICON_H = 96    // total icon height (SVG viewBox height)
-// The "head" of the fixture sits at ~28% down the icon
-const HEAD_Y_FRAC = 0.28
-const GRID_COLS = 4
-const GRID_ROWS = 3
+const ICON_W = 48
+const ICON_H = 96
+// The lens/pivot sits this far down the icon (SVG y=30 / viewBox height=96 ≈ 0.31)
+const LENS_Y_FRAC = 0.31
+const LENS_SVG_X = 24   // lens centre in SVG coords
+const LENS_SVG_Y = 30
 
-// ── Public interface ──────────────────────────────────────────
+// Minimum pixel distance between two lens centres (no overlap)
+const MIN_DIST = ICON_W * 1.15
+
+// Pixel padding so icons don't go outside stage bounds
+const PAD_X = ICON_W / 2 + 2
+const PAD_TOP = Math.round(ICON_H * LENS_Y_FRAC) + 2
+const PAD_BOTTOM = 28   // audience bar height + margin
+
+// ─────────────────────────────────────────────────────────────
+// Public component
+// ─────────────────────────────────────────────────────────────
 interface Props {
   lights: Light[]
-  /** Color to display — from active ambiance or test mode. null = show defaultColor */
   activeLightStates: Record<string, LightState> | null
   onLightMove: (lightId: string, x: number, y: number) => void
   onLightTap: (light: Light) => void
@@ -35,6 +45,41 @@ interface Props {
 
 export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap }: Props) {
   const [stageW, setStageW] = useState(1)
+
+  function handleMove(lightId: string, pxX: number, pxY: number) {
+    // Clamp to stage bounds
+    let cx = clamp(pxX, PAD_X, stageW - PAD_X)
+    let cy = clamp(pxY, PAD_TOP, STAGE_HEIGHT - PAD_BOTTOM)
+
+    // Repel from other lights (iterative)
+    for (let iter = 0; iter < 8; iter++) {
+      let moved = false
+      for (const other of lights) {
+        if (other.id === lightId) continue
+        const ox = other.sceneX * stageW
+        const oy = other.sceneY * STAGE_HEIGHT
+        const dx = cx - ox
+        const dy = cy - oy
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < MIN_DIST) {
+          if (dist < 0.5) {
+            cy -= MIN_DIST   // exactly same spot – push up
+          } else {
+            const angle = Math.atan2(dy, dx)
+            cx = ox + Math.cos(angle) * MIN_DIST
+            cy = oy + Math.sin(angle) * MIN_DIST
+          }
+          // Re-clamp after repulsion
+          cx = clamp(cx, PAD_X, stageW - PAD_X)
+          cy = clamp(cy, PAD_TOP, STAGE_HEIGHT - PAD_BOTTOM)
+          moved = true
+        }
+      }
+      if (!moved) break
+    }
+
+    onLightMove(lightId, cx / stageW, cy / STAGE_HEIGHT)
+  }
 
   return (
     <View>
@@ -44,7 +89,6 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
       >
         {stageW > 1 && <GridOverlay stageW={stageW} />}
 
-        {/* Audience bar at bottom */}
         <View style={styles.audienceBar}>
           <Text style={styles.audienceLabel}>▼  AUDIENCE  ▼</Text>
         </View>
@@ -57,21 +101,14 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
 
         {stageW > 1 &&
           lights.map((light) => {
-            // Resolve color: active ambiance > default color > dim fallback
             const amb = activeLightStates?.[light.id] ?? null
             const dc = light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }
-            let r = dc.r
-            let g = dc.g
-            let b = dc.b
-            let w = dc.w
-            let intensity = 100
-            let isOn = false  // off when no ambiance
-
-            if (amb) {
-              r = amb.r; g = amb.g; b = amb.b; w = amb.w
-              intensity = amb.intensity
-              isOn = amb.isOn
-            }
+            const r = amb ? amb.r : dc.r
+            const g = amb ? amb.g : dc.g
+            const b = amb ? amb.b : dc.b
+            const w = amb ? amb.w : dc.w
+            const intensity = amb ? amb.intensity : (amb ? 100 : 60)
+            const isOn = amb ? amb.isOn : false
 
             return (
               <DraggableLight
@@ -81,7 +118,8 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
                 intensity={intensity}
                 isOn={isOn}
                 stageW={stageW}
-                onMove={(x, y) => onLightMove(light.id, x, y)}
+                allLights={lights}
+                onMovePixel={(px, py) => handleMove(light.id, px, py)}
                 onTap={() => onLightTap(light)}
               />
             )
@@ -92,128 +130,142 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
   )
 }
 
-// ── Grid ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Grid
+// ─────────────────────────────────────────────────────────────
 function GridOverlay({ stageW }: { stageW: number }) {
-  const vLines = Array.from({ length: GRID_COLS - 1 }, (_, i) =>
-    Math.round((stageW / GRID_COLS) * (i + 1)),
-  )
-  const hLines = Array.from({ length: GRID_ROWS - 1 }, (_, i) =>
-    Math.round((STAGE_HEIGHT / GRID_ROWS) * (i + 1)),
-  )
+  const vLines = [0.25, 0.5, 0.75].map((f) => Math.round(f * stageW))
+  const hLines = [0.33, 0.66].map((f) => Math.round(f * STAGE_HEIGHT))
   return (
     <>
-      {vLines.map((x) => (
-        <View key={`v${x}`} style={[styles.gridV, { left: x }]} />
-      ))}
-      {hLines.map((y) => (
-        <View key={`h${y}`} style={[styles.gridH, { top: y }]} />
-      ))}
+      {vLines.map((x) => <View key={`v${x}`} style={[styles.gridV, { left: x }]} />)}
+      {hLines.map((y) => <View key={`h${y}`} style={[styles.gridH, { top: y }]} />)}
     </>
   )
 }
 
-// ── Stage light SVG icon ──────────────────────────────────────
-interface LightIconProps {
+// ─────────────────────────────────────────────────────────────
+// Stage light SVG icon — rotated around the lens pivot via <G>
+// ─────────────────────────────────────────────────────────────
+interface IconProps {
   r: number; g: number; b: number; w: number
   intensity: number
   isOn: boolean
-  width: number
-  height: number
+  rotation: number    // degrees
+  beamWidth: number
+  width: number; height: number
 }
 
-function StageLightIcon({ r, g, b, w, intensity, isOn, width, height }: LightIconProps) {
+function StageLightIcon({ r, g, b, w, intensity, isOn, rotation, beamWidth, width, height }: IconProps) {
   const ratio = intensity / 100
   const dr = Math.min(255, Math.round((r + w) * ratio))
   const dg = Math.min(255, Math.round((g + w) * ratio))
   const db = Math.min(255, Math.round((b + w) * ratio))
   const colorStr = `rgb(${dr},${dg},${db})`
-  const dimColor = `rgba(${dr},${dg},${db},0.12)`
 
-  // SVG coordinate system: 48 × 96
+  // Beam trapezoid path — spreads from just below lens (y=32) to bottom (y=90)
+  const bw = clamp(beamWidth ?? 1.0, 0.3, 2.5)
+  const halfBot = Math.round(8 + bw * 16)   // half-width at the wide end
+  const beamPath =
+    `M${LENS_SVG_X - 8},${LENS_SVG_Y + 2} ` +
+    `L${LENS_SVG_X + 8},${LENS_SVG_Y + 2} ` +
+    `L${LENS_SVG_X + halfBot},90 ` +
+    `L${LENS_SVG_X - halfBot},90 Z`
+
+  const rotateStr = `rotate(${rotation ?? 0}, ${LENS_SVG_X}, ${LENS_SVG_Y})`
+
   return (
-    <Svg width={width} height={height} viewBox="0 0 48 96">
+    // overflow="visible" lets the rotated beam spill beyond the SVG box
+    <Svg width={width} height={height} viewBox="0 0 48 96" overflow="visible">
       <Defs>
-        <RadialGradient id="beamGrad" cx="50%" cy="0%" r="100%">
-          <Stop offset="0%" stopColor={colorStr} stopOpacity={isOn ? 0.55 : 0.06} />
-          <Stop offset="100%" stopColor={colorStr} stopOpacity={isOn ? 0.05 : 0} />
+        <RadialGradient id={`bg${dr}${dg}${db}`} cx="50%" cy="5%" r="95%">
+          <Stop offset="0%"   stopColor={colorStr} stopOpacity={isOn ? 0.60 : 0.05} />
+          <Stop offset="100%" stopColor={colorStr} stopOpacity={0} />
         </RadialGradient>
-        <RadialGradient id="lensGrad" cx="40%" cy="35%" r="65%">
-          <Stop offset="0%" stopColor="#ffffff" stopOpacity={isOn ? 0.7 : 0.1} />
-          <Stop offset="100%" stopColor={colorStr} stopOpacity={isOn ? 0.9 : 0.25} />
+        <RadialGradient id={`lg${dr}${dg}${db}`} cx="38%" cy="32%" r="65%">
+          <Stop offset="0%"   stopColor="#ffffff"  stopOpacity={isOn ? 0.75 : 0.08} />
+          <Stop offset="100%" stopColor={colorStr} stopOpacity={isOn ? 0.92 : 0.22} />
         </RadialGradient>
       </Defs>
 
-      {/* ── Beam cone (behind everything else) ── */}
-      <Path
-        d="M16,32 L32,32 L46,92 L2,92 Z"
-        fill="url(#beamGrad)"
-      />
-      {/* Soft beam center line */}
-      {isOn && (
-        <Path
-          d="M24,32 L24,92"
-          stroke={colorStr}
-          strokeWidth={isOn ? 1.5 : 0}
-          strokeOpacity={0.18}
+      {/* Everything rotates together around the lens centre */}
+      <G transform={rotateStr}>
+        {/* ── Beam ── */}
+        <Path d={beamPath} fill={`url(#bg${dr}${dg}${db})`} />
+
+        {/* ── Truss / rigging bar ── */}
+        <Rect x="4" y="2" width="40" height="5" rx="2.5" fill="#222222" />
+
+        {/* ── Fixture body (trapezoid) ── */}
+        <Path d="M13,6 L35,6 L37,25 L11,25 Z" fill="#3b3b3b" />
+
+        {/* ── Yoke stub ── */}
+        <Rect x="20" y="23" width="8" height="5" rx="2" fill="#505050" />
+
+        {/* ── Lens housing ring ── */}
+        <Ellipse cx={LENS_SVG_X} cy={LENS_SVG_Y} rx="11" ry="5" fill="#1e1e1e" />
+
+        {/* ── Lens face ── */}
+        <Ellipse
+          cx={LENS_SVG_X} cy={LENS_SVG_Y} rx="9" ry="4"
+          fill={`url(#lg${dr}${dg}${db})`}
         />
-      )}
 
-      {/* ── Rigging bar / truss ── */}
-      <Rect x="4" y="2" width="40" height="5" rx="2.5" fill="#2a2a2a" />
-
-      {/* ── Fixture body (trapezoid) ── */}
-      <Path d="M13,7 L35,7 L37,26 L11,26 Z" fill="#3c3c3c" />
-
-      {/* ── Knuckle / pan-tilt joint ── */}
-      <Rect x="20" y="24" width="8" height="5" rx="2" fill="#555" />
-
-      {/* ── Lens housing ring ── */}
-      <Ellipse cx="24" cy="30" rx="11" ry="5" fill="#2a2a2a" />
-
-      {/* ── Lens face ── */}
-      <Ellipse cx="24" cy="30" rx="9" ry="4" fill="url(#lensGrad)" />
-
-      {/* ── Name label position marker ── (not rendered, used for layout reference) */}
+        {/* ── Lens specular dot ── */}
+        {isOn && (
+          <Circle cx={LENS_SVG_X - 3} cy={LENS_SVG_Y - 1} r="2.5"
+            fill="rgba(255,255,255,0.45)" />
+        )}
+      </G>
     </Svg>
   )
 }
 
-// ── Draggable light node ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Draggable wrapper
+// ─────────────────────────────────────────────────────────────
 interface DLProps {
   light: Light
   r: number; g: number; b: number; w: number
-  intensity: number
-  isOn: boolean
+  intensity: number; isOn: boolean
   stageW: number
-  onMove: (x: number, y: number) => void
+  allLights: Light[]
+  onMovePixel: (pxX: number, pxY: number) => void
   onTap: () => void
 }
 
-function DraggableLight({ light, r, g, b, w, intensity, isOn, stageW, onMove, onTap }: DLProps) {
-  // Absolute pixel position of the icon's top-left, so the HEAD is at (sceneX, sceneY)
-  const initX = () => light.sceneX * stageW - ICON_W / 2
-  const initY = () => light.sceneY * STAGE_HEIGHT - ICON_H * HEAD_Y_FRAC
+function DraggableLight({ light, r, g, b, w, intensity, isOn, stageW, onMovePixel, onTap }: DLProps) {
+  // icon top-left so lens is at (sceneX * stageW, sceneY * STAGE_H)
+  const initLeft = () => light.sceneX * stageW - ICON_W / 2
+  const initTop  = () => light.sceneY * STAGE_HEIGHT - ICON_H * LENS_Y_FRAC
 
-  // Shared values own the position — never go through JS bridge during drag
-  const posX = useSharedValue(initX())
-  const posY = useSharedValue(initY())
+  const posX   = useSharedValue(initLeft())
+  const posY   = useSharedValue(initTop())
   const startX = useSharedValue(0)
   const startY = useSharedValue(0)
-  const sc = useSharedValue(1)
-  const dragging = useSharedValue(false)
+  const sc     = useSharedValue(1)
+  const active = useSharedValue(false)
+  const firstRender = useRef(true)
 
-  // Sync when store position changes (e.g. after first mount or external reset)
   useEffect(() => {
-    posX.value = initX()
-    posY.value = initY()
+    const tx = initLeft()
+    const ty = initTop()
+    if (firstRender.current) {
+      posX.value = tx
+      posY.value = ty
+      firstRender.current = false
+    } else if (!active.value) {
+      posX.value = withSpring(tx, { damping: 22 })
+      posY.value = withSpring(ty, { damping: 22 })
+    }
   }, [light.sceneX, light.sceneY, stageW])
 
   const pan = Gesture.Pan()
     .onBegin(() => {
       startX.value = posX.value
       startY.value = posY.value
-      dragging.value = true
-      sc.value = withTiming(1.12, { duration: 100 })
+      active.value = true
+      sc.value = withTiming(1.12, { duration: 110 })
     })
     .onUpdate((e) => {
       posX.value = startX.value + e.translationX
@@ -221,39 +273,29 @@ function DraggableLight({ light, r, g, b, w, intensity, isOn, stageW, onMove, on
     })
     .onEnd((e) => {
       const moved = Math.abs(e.translationX) > 6 || Math.abs(e.translationY) > 6
-
       if (moved) {
-        // Convert back to normalised coords using the HEAD point
-        const headCX = posX.value + ICON_W / 2
-        const headCY = posY.value + ICON_H * HEAD_Y_FRAC
-
-        const nx = Math.max(0.04, Math.min(0.96, headCX / stageW))
-        const ny = Math.max(0.04, Math.min(0.88, headCY / STAGE_HEIGHT))
-
-        // Snap icon to clamped position immediately
-        posX.value = nx * stageW - ICON_W / 2
-        posY.value = ny * STAGE_HEIGHT - ICON_H * HEAD_Y_FRAC
-
-        runOnJS(onMove)(nx, ny)
+        // Lens centre in pixels
+        const lx = posX.value + ICON_W / 2
+        const ly = posY.value + ICON_H * LENS_Y_FRAC
+        // Pass to JS for clamping + overlap resolution → store update → useEffect re-positions
+        runOnJS(onMovePixel)(lx, ly)
       } else {
-        // Short tap — restore position & open config
+        // Restore position (snap back) then open config
         posX.value = withSpring(startX.value, { damping: 20 })
         posY.value = withSpring(startY.value, { damping: 20 })
         runOnJS(onTap)()
       }
-
       sc.value = withSpring(1, { damping: 18 })
-      dragging.value = false
+      active.value = false
     })
 
   const animStyle = useAnimatedStyle(() => ({
     position: 'absolute' as const,
     left: posX.value,
-    top: posY.value,
+    top:  posY.value,
     width: ICON_W,
-    height: ICON_H,
+    zIndex: active.value ? 20 : 1,
     transform: [{ scale: sc.value }],
-    zIndex: dragging.value ? 20 : 1,
   }))
 
   const ratio = intensity / 100
@@ -267,32 +309,30 @@ function DraggableLight({ light, r, g, b, w, intensity, isOn, stageW, onMove, on
       <Animated.View style={animStyle}>
         <StageLightIcon
           r={r} g={g} b={b} w={w}
-          intensity={intensity}
-          isOn={isOn}
-          width={ICON_W}
-          height={ICON_H}
+          intensity={intensity} isOn={isOn}
+          rotation={light.rotation ?? 0}
+          beamWidth={light.beamWidth ?? 1.0}
+          width={ICON_W} height={ICON_H}
         />
-        {/* Name badge below icon */}
-        <View
-          style={[
-            styles.nameBadge,
-            {
-              backgroundColor: isOn
-                ? `rgba(${dr},${dg},${db},0.25)`
-                : 'rgba(40,40,40,0.85)',
-            },
-          ]}
-        >
-          <Text
-            style={[styles.nameBadgeText, { color: isOn && !isDark ? '#000' : '#fff' }]}
-            numberOfLines={1}
-          >
+        {/* Name badge — always horizontal, even when fixture is rotated */}
+        <View style={[
+          styles.badge,
+          { backgroundColor: isOn ? `rgba(${dr},${dg},${db},0.22)` : 'rgba(30,30,30,0.85)' },
+        ]}>
+          <Text style={[styles.badgeText, { color: isOn && !isDark ? '#000' : '#fff' }]} numberOfLines={1}>
             {light.name}
           </Text>
         </View>
       </Animated.View>
     </GestureDetector>
   )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v))
 }
 
 const styles = StyleSheet.create({
@@ -306,64 +346,34 @@ const styles = StyleSheet.create({
     borderColor: '#12213a',
   },
   gridV: {
-    position: 'absolute',
-    top: 0,
-    width: 1,
-    height: STAGE_HEIGHT,
+    position: 'absolute', top: 0,
+    width: 1, height: STAGE_HEIGHT,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   gridH: {
-    position: 'absolute',
-    left: 0,
-    height: 1,
-    width: '100%',
+    position: 'absolute', left: 0,
+    height: 1, width: '100%',
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   audienceBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 22,
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 24,
     backgroundColor: 'rgba(255,255,255,0.03)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.07)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+    justifyContent: 'center', alignItems: 'center',
   },
   audienceLabel: {
-    fontSize: 8,
-    color: 'rgba(255,255,255,0.18)',
-    letterSpacing: 2.5,
-    fontWeight: '700',
+    fontSize: 8, color: 'rgba(255,255,255,0.18)',
+    letterSpacing: 2.5, fontWeight: '700',
   },
-  emptyMsg: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.12)',
-    fontSize: 13,
-  },
-  hint: {
-    fontSize: 11,
-    color: '#333',
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  nameBadge: {
-    marginTop: -4,
+  emptyMsg: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: 'rgba(255,255,255,0.12)', fontSize: 13 },
+  hint: { fontSize: 11, color: '#333', textAlign: 'center', marginTop: 6, marginBottom: 4 },
+  badge: {
     alignSelf: 'center',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    marginTop: -2,
+    paddingHorizontal: 5, paddingVertical: 2,
     borderRadius: 4,
     maxWidth: ICON_W + 20,
   },
-  nameBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+  badgeText: { fontSize: 9, fontWeight: '700', textAlign: 'center' },
 })
