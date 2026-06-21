@@ -1,42 +1,50 @@
 import React, { useState, useEffect } from 'react'
 import { ScrollView, StyleSheet, View, Pressable } from 'react-native'
-import { Text, Button, Switch, Divider, Chip, Portal, Dialog, TextInput, IconButton } from 'react-native-paper'
+import {
+  Text, Button, Switch, Divider, Chip, Portal, Dialog,
+  TextInput, IconButton, Checkbox,
+} from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { MaterialIcons } from '@expo/vector-icons'
 import { useLocalSearchParams } from 'expo-router'
+import Slider from '@react-native-community/slider'
 import { SimpleColorPicker } from '../../src/components/SimpleColorPicker'
 import { WheelColorPicker } from '../../src/components/WheelColorPicker'
 import { IntensitySlider } from '../../src/components/IntensitySlider'
-import { useAmbiancesStore, defaultLightState } from '../../src/store/ambiancesStore'
+import { useAmbiancesStore, defaultLightState, type AmbianceEffect } from '../../src/store/ambiancesStore'
 import { useLightsStore } from '../../src/store/lightsStore'
+import { EFFECT_PRESETS, EFFECT_PRESET_MAP } from '../../src/effects/presets'
+import { effectsRunner } from '../../src/effects/runner'
+import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
 
 export default function EditorScreen() {
   const params = useLocalSearchParams<{ ambianceId?: string }>()
-
   const ambiances = useAmbiancesStore((s) => s.ambiances)
   const setLightState = useAmbiancesStore((s) => s.setLightState)
   const getLightState = useAmbiancesStore((s) => s.getLightState)
   const renameAmbiance = useAmbiancesStore((s) => s.renameAmbiance)
-
+  const addEffect = useAmbiancesStore((s) => s.addEffect)
+  const updateEffect = useAmbiancesStore((s) => s.updateEffect)
+  const removeEffect = useAmbiancesStore((s) => s.removeEffect)
+  const activeAmbianceId = useAmbiancesStore((s) => s.activeAmbianceId)
   const lights = useLightsStore((s) => s.lights)
 
-  // Which ambiance is being edited
   const [editingId, setEditingId] = useState<string>(
     params.ambianceId ?? ambiances[0]?.id ?? '',
   )
-  // Which light is currently selected for color editing
   const [selectedLightId, setSelectedLightId] = useState<string>(lights[0]?.id ?? '')
-  // All-lights toggle
   const [allLights, setAllLights] = useState(false)
-  // Rename dialog
   const [renameDialog, setRenameDialog] = useState(false)
   const [renameInput, setRenameInput] = useState('')
 
-  // Sync if params change (navigated from Panel 1)
+  // Effect dialog state
+  const [effectDialog, setEffectDialog] = useState<'add' | 'edit' | null>(null)
+  const [editingEffect, setEditingEffect] = useState<AmbianceEffect | null>(null)
+
   useEffect(() => {
     if (params.ambianceId) setEditingId(params.ambianceId)
   }, [params.ambianceId])
 
-  // Auto-select first light when lights change
   useEffect(() => {
     if (lights.length > 0 && !lights.find((l) => l.id === selectedLightId)) {
       setSelectedLightId(lights[0].id)
@@ -44,7 +52,6 @@ export default function EditorScreen() {
   }, [lights])
 
   const editingAmbiance = ambiances.find((a) => a.id === editingId)
-
   const activeState = editingId && selectedLightId
     ? getLightState(editingId, selectedLightId)
     : defaultLightState()
@@ -53,20 +60,48 @@ export default function EditorScreen() {
 
   function applyPatch(patch: Partial<typeof activeState>) {
     if (allLights) {
-      for (const light of lights) {
-        setLightState(editingId, light.id, patch)
-      }
+      for (const light of lights) setLightState(editingId, light.id, patch)
     } else if (selectedLightId) {
       setLightState(editingId, selectedLightId, patch)
     }
   }
 
-  function handleSwatchColor(nr: number, ng: number, nb: number, nw: number) {
-    applyPatch({ r: nr, g: ng, b: nb, w: nw, isOn: true })
+  function openAddEffect() {
+    setEditingEffect({
+      id: `eff-${Math.random().toString(36).slice(2, 8)}`,
+      presetId: EFFECT_PRESETS[0].id,
+      targetLightIds: 'all',
+      bpm: EFFECT_PRESETS[0].defaultBpm,
+      repeat: EFFECT_PRESETS[0].defaultRepeat,
+      durationMs: EFFECT_PRESETS[0].defaultDurationMs,
+      maxIntensity: 100,
+    })
+    setEffectDialog('add')
   }
 
-  function handleWheelColor(nr: number, ng: number, nb: number) {
-    applyPatch({ r: nr, g: ng, b: nb, isOn: true })
+  function openEditEffect(eff: AmbianceEffect) {
+    setEditingEffect({ ...eff })
+    setEffectDialog('edit')
+  }
+
+  function saveEffect() {
+    if (!editingEffect) return
+    if (effectDialog === 'add') {
+      addEffect(editingId, editingEffect)
+    } else {
+      updateEffect(editingId, editingEffect)
+    }
+    // Restart ambiance effects if this is the active ambiance
+    if (activeAmbianceId === editingId) {
+      const updatedAmb = ambiances.find(a => a.id === editingId)
+      if (updatedAmb) {
+        const newEffects = effectDialog === 'add'
+          ? [...(updatedAmb.effects ?? []), editingEffect]
+          : (updatedAmb.effects ?? []).map(e => e.id === editingEffect.id ? editingEffect : e)
+        effectsRunner.startAmbianceEffects(newEffects)
+      }
+    }
+    setEffectDialog(null)
   }
 
   const currentHex = rgbToHex(r, g, b)
@@ -89,26 +124,13 @@ export default function EditorScreen() {
         {/* ── Ambiance selector ── */}
         <View style={styles.ambHeader}>
           <Text style={styles.sectionLabel}>EDITING AMBIANCE</Text>
-          <IconButton
-            icon="pencil"
-            size={16}
-            iconColor="#ff6b35"
-            onPress={() => {
-              setRenameInput(editingAmbiance?.name ?? '')
-              setRenameDialog(true)
-            }}
-          />
+          <IconButton icon="pencil" size={16} iconColor="#ff6b35"
+            onPress={() => { setRenameInput(editingAmbiance?.name ?? ''); setRenameDialog(true) }} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {ambiances.map((a) => (
-            <Chip
-              key={a.id}
-              selected={a.id === editingId}
-              onPress={() => setEditingId(a.id)}
-              selectedColor="#ff6b35"
-              style={styles.chip}
-              compact
-            >
+            <Chip key={a.id} selected={a.id === editingId} onPress={() => setEditingId(a.id)}
+              selectedColor="#ff6b35" style={styles.chip} compact>
               {a.name}
             </Chip>
           ))}
@@ -131,66 +153,46 @@ export default function EditorScreen() {
             const tileColor = getStateColor(state)
             const isSelected = light.id === selectedLightId && !allLights
             return (
-              <Pressable
-                key={light.id}
-                onPress={() => {
-                  setSelectedLightId(light.id)
-                  setAllLights(false)
-                }}
-                style={[
-                  styles.lightTile,
-                  { backgroundColor: tileColor },
-                  isSelected && styles.lightTileSelected,
-                ]}
-              >
+              <Pressable key={light.id}
+                onPress={() => { setSelectedLightId(light.id); setAllLights(false) }}
+                style={[styles.lightTile, { backgroundColor: tileColor }, isSelected && styles.lightTileSelected]}>
                 <View style={[styles.lightOnDot, { backgroundColor: state.isOn ? '#fff' : '#444' }]} />
-                <Text style={styles.lightTileName} numberOfLines={2}>
-                  {light.name}
-                </Text>
+                <Text style={styles.lightTileName} numberOfLines={2}>{light.name}</Text>
               </Pressable>
             )
           })}
         </ScrollView>
 
-        {lights.length === 0 && (
-          <Text style={styles.noLightsHint}>Add lights in Settings → Lights tab first.</Text>
-        )}
+        {lights.length === 0 && <Text style={styles.noLightsHint}>Add lights in Settings → Lights tab.</Text>}
 
         <Divider style={styles.divider} />
 
-        {/* ── On/Off for selected light ── */}
+        {/* ── On/Off ── */}
         {!allLights && selectedLightId && (
           <View style={styles.onOffRow}>
-            <Text style={styles.sectionLabel}>
-              {lights.find((l) => l.id === selectedLightId)?.name ?? 'Light'}
-            </Text>
+            <Text style={styles.sectionLabel}>{lights.find((l) => l.id === selectedLightId)?.name ?? 'Light'}</Text>
             <View style={styles.onOffToggle}>
               <Text style={styles.onOffLabel}>{isOn ? 'ON' : 'OFF'}</Text>
-              <Switch
-                value={isOn}
-                onValueChange={(v) => applyPatch({ isOn: v })}
-                color="#ff6b35"
-              />
+              <Switch value={isOn} onValueChange={(v) => applyPatch({ isOn: v })} color="#ff6b35" />
             </View>
           </View>
         )}
 
         {/* ── Quick colors ── */}
         <Text style={styles.sectionLabel2}>QUICK COLORS</Text>
-        <SimpleColorPicker onSelectColor={handleSwatchColor} selectedHex={undefined} />
+        <SimpleColorPicker
+          onSelectColor={(nr, ng, nb, nw) => applyPatch({ r: nr, g: ng, b: nb, w: nw, isOn: true })}
+          selectedHex={undefined}
+        />
 
         <Divider style={styles.divider} />
 
-        {/* ── Wheel ── */}
+        {/* ── Color wheel ── */}
         <Text style={styles.sectionLabel2}>COLOR WHEEL</Text>
-        <WheelColorPicker currentHex={currentHex} onColorChange={handleWheelColor} />
-
-        {/* White channel */}
-        <IntensitySlider
-          value={(w / 255) * 100}
-          onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })}
-          label="White Channel"
-        />
+        <WheelColorPicker currentHex={currentHex}
+          onColorChange={(nr, ng, nb) => applyPatch({ r: nr, g: ng, b: nb, isOn: true })} />
+        <IntensitySlider value={(w / 255) * 100}
+          onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })} label="White Channel" />
 
         <Divider style={styles.divider} />
 
@@ -198,32 +200,205 @@ export default function EditorScreen() {
         <Text style={styles.sectionLabel2}>INTENSITY</Text>
         <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
 
+        <Divider style={styles.divider} />
+
+        {/* ── Effects for this ambiance ── */}
+        <View style={styles.effectsHeader}>
+          <Text style={styles.sectionLabel2}>EFFECTS IN THIS AMBIANCE</Text>
+          <Button icon="plus" mode="text" compact onPress={openAddEffect}>Add</Button>
+        </View>
+
+        {(editingAmbiance?.effects ?? []).length === 0 && (
+          <Text style={styles.noEffectsHint}>
+            No effects — tap Add to create one.{'\n'}
+            Examples: Strobe Party, Heartbeat, Ocean Breathe have effects pre-configured.
+          </Text>
+        )}
+
+        {(editingAmbiance?.effects ?? []).map((eff) => {
+          const preset = EFFECT_PRESET_MAP[eff.presetId]
+          if (!preset) return null
+          const targetLabel = eff.targetLightIds === 'all'
+            ? 'All lights'
+            : lights.filter((l) => (eff.targetLightIds as string[]).includes(l.id)).map((l) => l.name).join(', ') || '—'
+          const paramLabel = ['ramp_up','ramp_down','breathe','color_transition'].includes(preset.kind)
+            ? `${(eff.durationMs / 1000).toFixed(1)}s`
+            : `${eff.bpm} BPM`
+          return (
+            <View key={eff.id} style={styles.effectRow}>
+              <MaterialIcons name={preset.icon as any} size={18} color="#ff6b35" />
+              <View style={styles.effectRowInfo}>
+                <Text style={styles.effectRowName}>{preset.name}</Text>
+                <Text style={styles.effectRowMeta}>
+                  {targetLabel} · {paramLabel} {eff.repeat ? '· Repeat' : '· Once'}
+                </Text>
+              </View>
+              <IconButton icon="pencil" size={16} iconColor="#888" onPress={() => openEditEffect(eff)} />
+              <IconButton icon="delete-outline" size={16} iconColor="#e74c3c"
+                onPress={() => removeEffect(editingId, eff.id)} />
+            </View>
+          )
+        })}
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Rename dialog */}
+      {/* ── Rename dialog ── */}
       <Portal>
         <Dialog visible={renameDialog} onDismiss={() => setRenameDialog(false)}>
           <Dialog.Title>Rename Ambiance</Dialog.Title>
           <Dialog.Content>
-            <TextInput
-              label="Name"
-              value={renameInput}
-              onChangeText={setRenameInput}
-              mode="outlined"
-              autoFocus
-            />
+            <TextInput label="Name" value={renameInput} onChangeText={setRenameInput} mode="outlined" autoFocus />
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setRenameDialog(false)}>Cancel</Button>
-            <Button
-              onPress={() => {
-                if (renameInput.trim()) renameAmbiance(editingId, renameInput.trim())
-                setRenameDialog(false)
-              }}
-            >
-              Save
-            </Button>
+            <Button onPress={() => { if (renameInput.trim()) renameAmbiance(editingId, renameInput.trim()); setRenameDialog(false) }}>Save</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* ── Add / Edit effect dialog ── */}
+      <Portal>
+        <Dialog visible={!!effectDialog} onDismiss={() => setEffectDialog(null)}>
+          <Dialog.Title>{effectDialog === 'add' ? 'Add Effect' : 'Edit Effect'}</Dialog.Title>
+          {editingEffect && (
+            <Dialog.ScrollArea style={styles.effectScrollArea}>
+              <ScrollView>
+                {/* Preset picker */}
+                <Text style={styles.dialogLabel}>Effect Type</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.presetPickerRow}>
+                  {EFFECT_PRESETS.map((p) => (
+                    <Pressable key={p.id}
+                      onPress={() => {
+                        setEditingEffect({
+                          ...editingEffect,
+                          presetId: p.id,
+                          bpm: p.defaultBpm,
+                          durationMs: p.defaultDurationMs,
+                          repeat: p.defaultRepeat,
+                          toColor: p.defaultToColor,
+                        })
+                      }}
+                      style={[styles.presetPickBtn, editingEffect.presetId === p.id && styles.presetPickBtnActive]}>
+                      <MaterialIcons name={p.icon as any} size={20}
+                        color={editingEffect.presetId === p.id ? '#fff' : '#aaa'} />
+                      <Text style={[styles.presetPickName, editingEffect.presetId === p.id && { color: '#fff' }]}>
+                        {p.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+
+                {/* Target lights */}
+                <Text style={[styles.dialogLabel, { marginTop: 12 }]}>Target Lights</Text>
+                <Pressable style={styles.allToggleRow}
+                  onPress={() => setEditingEffect({ ...editingEffect, targetLightIds: 'all' })}>
+                  <Checkbox
+                    status={editingEffect.targetLightIds === 'all' ? 'checked' : 'unchecked'}
+                    color="#ff6b35"
+                  />
+                  <Text style={styles.allToggleLabel}>All Lights</Text>
+                </Pressable>
+                {editingEffect.targetLightIds !== 'all' && lights.map((light) => {
+                  const ids = editingEffect.targetLightIds as string[]
+                  const checked = ids.includes(light.id)
+                  return (
+                    <Pressable key={light.id} style={styles.allToggleRow}
+                      onPress={() => {
+                        const newIds = checked ? ids.filter(id => id !== light.id) : [...ids, light.id]
+                        setEditingEffect({ ...editingEffect, targetLightIds: newIds })
+                      }}>
+                      <Checkbox status={checked ? 'checked' : 'unchecked'} color="#ff6b35" />
+                      <Text style={styles.allToggleLabel}>{light.name}</Text>
+                    </Pressable>
+                  )
+                })}
+                {editingEffect.targetLightIds === 'all' && (
+                  <Button mode="text" compact onPress={() => {
+                    setEditingEffect({ ...editingEffect, targetLightIds: lights.map(l => l.id) })
+                  }}>Pick specific lights instead</Button>
+                )}
+
+                {/* BPM or Duration param */}
+                {(() => {
+                  const preset = EFFECT_PRESET_MAP[editingEffect.presetId]
+                  if (!preset) return null
+                  const isSmooth = ['ramp_up','ramp_down','breathe','color_transition'].includes(preset.kind)
+                  if (isSmooth) {
+                    const sec = editingEffect.durationMs / 1000
+                    return (
+                      <>
+                        <Text style={[styles.dialogLabel, { marginTop: 12 }]}>
+                          Duration: {sec.toFixed(1)} s
+                        </Text>
+                        <Slider value={sec}
+                          onValueChange={(v) => setEditingEffect({ ...editingEffect, durationMs: Math.round(v * 1000) })}
+                          minimumValue={0.5} maximumValue={30} step={0.5}
+                          minimumTrackTintColor="#ff6b35" maximumTrackTintColor="#333" thumbTintColor="#ff6b35"
+                          style={styles.slider} />
+                      </>
+                    )
+                  }
+                  return (
+                    <>
+                      <Text style={[styles.dialogLabel, { marginTop: 12 }]}>
+                        Speed: {editingEffect.bpm} BPM
+                      </Text>
+                      <Slider value={editingEffect.bpm}
+                        onValueChange={(v) => setEditingEffect({ ...editingEffect, bpm: Math.round(v) })}
+                        minimumValue={preset.minBpm} maximumValue={preset.maxBpm} step={1}
+                        minimumTrackTintColor="#ff6b35" maximumTrackTintColor="#333" thumbTintColor="#ff6b35"
+                        style={styles.slider} />
+                    </>
+                  )
+                })()}
+
+                {/* Max intensity */}
+                <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
+                  Max Intensity: {editingEffect.maxIntensity}%
+                </Text>
+                <Slider value={editingEffect.maxIntensity}
+                  onValueChange={(v) => setEditingEffect({ ...editingEffect, maxIntensity: Math.round(v) })}
+                  minimumValue={10} maximumValue={100} step={1}
+                  minimumTrackTintColor="#ff6b35" maximumTrackTintColor="#333" thumbTintColor="#ff6b35"
+                  style={styles.slider} />
+
+                {/* Color transition: target color swatches */}
+                {EFFECT_PRESET_MAP[editingEffect.presetId]?.kind === 'color_transition' && (
+                  <>
+                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Fade To Color</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.colorSwatchRow}>
+                      {DEFAULT_COLORS.map((c) => {
+                        const tc = editingEffect.toColor
+                        const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
+                        return (
+                          <Pressable key={c.hex}
+                            onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                            style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                        )
+                      })}
+                    </ScrollView>
+                  </>
+                )}
+
+                {/* Repeat */}
+                {EFFECT_PRESET_MAP[editingEffect.presetId]?.defaultRepeat !== undefined && (
+                  <Pressable style={styles.allToggleRow}
+                    onPress={() => setEditingEffect({ ...editingEffect, repeat: !editingEffect.repeat })}>
+                    <Checkbox status={editingEffect.repeat ? 'checked' : 'unchecked'} color="#ff6b35" />
+                    <Text style={styles.allToggleLabel}>Repeat</Text>
+                  </Pressable>
+                )}
+
+                <View style={{ height: 12 }} />
+              </ScrollView>
+            </Dialog.ScrollArea>
+          )}
+          <Dialog.Actions>
+            <Button onPress={() => setEffectDialog(null)}>Cancel</Button>
+            <Button onPress={saveEffect}>Save</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -242,101 +417,53 @@ function getStateColor(state: ReturnType<typeof defaultLightState>): string {
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
-  return (
-    '#' +
-    [r, g, b]
-      .map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0'))
-      .join('')
-  )
+  return '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0a0a0a' },
   content: { paddingTop: 8 },
-  ambHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 16,
-    paddingRight: 4,
-    paddingTop: 12,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#555',
-    letterSpacing: 1.5,
-  },
-  sectionLabel2: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#555',
-    letterSpacing: 1.5,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  chipRow: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingVertical: 8,
-  },
+  ambHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 4, paddingTop: 12 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5 },
+  sectionLabel2: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5, marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
+  chipRow: { paddingHorizontal: 16, gap: 8, paddingVertical: 8 },
   chip: { backgroundColor: '#1a1a1a' },
   divider: { backgroundColor: '#1e1e1e', marginVertical: 8 },
-  lightSelectorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
+  lightSelectorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 4 },
   allLightsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   allLightsLabel: { fontSize: 13, color: '#aaa' },
-  lightTileRow: {
-    paddingHorizontal: 16,
-    gap: 10,
-    paddingVertical: 12,
-  },
-  lightTile: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    padding: 8,
-    justifyContent: 'flex-end',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  lightTileSelected: {
-    borderColor: '#ffffff',
-  },
-  lightOnDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  lightTileName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  noLightsHint: {
-    color: '#555',
-    fontSize: 13,
-    textAlign: 'center',
-    marginVertical: 16,
-    paddingHorizontal: 16,
-  },
-  onOffRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
+  lightTileRow: { paddingHorizontal: 16, gap: 10, paddingVertical: 12 },
+  lightTile: { width: 80, height: 80, borderRadius: 12, padding: 8, justifyContent: 'flex-end', borderWidth: 2, borderColor: 'transparent' },
+  lightTileSelected: { borderColor: '#ffffff' },
+  lightOnDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
+  lightTileName: { fontSize: 11, fontWeight: '600', color: '#ffffff' },
+  noLightsHint: { color: '#555', fontSize: 13, textAlign: 'center', marginVertical: 16, paddingHorizontal: 16 },
+  onOffRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 4 },
   onOffToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   onOffLabel: { color: '#aaa', fontSize: 13 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyText: { color: '#fff', fontSize: 16, marginBottom: 8 },
   emptyHint: { color: '#666', fontSize: 13, textAlign: 'center' },
+
+  // Effects section
+  effectsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 8 },
+  noEffectsHint: { color: '#444', fontSize: 12, marginHorizontal: 16, marginBottom: 8, lineHeight: 18 },
+  effectRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#141414', borderRadius: 10, marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
+  effectRowInfo: { flex: 1 },
+  effectRowName: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  effectRowMeta: { fontSize: 10, color: '#666', marginTop: 2 },
+
+  // Effect dialog
+  effectScrollArea: { maxHeight: 480 },
+  dialogLabel: { fontSize: 12, color: '#888', marginBottom: 4, marginTop: 4 },
+  presetPickerRow: { gap: 8, paddingVertical: 4 },
+  presetPickBtn: { width: 76, alignItems: 'center', backgroundColor: '#1a1a1a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 4, gap: 4, borderWidth: 1, borderColor: '#2a2a2a' },
+  presetPickBtnActive: { backgroundColor: '#ff6b35', borderColor: '#ff6b35' },
+  presetPickName: { fontSize: 9, fontWeight: '700', color: '#aaa', textAlign: 'center' },
+  allToggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  allToggleLabel: { fontSize: 14, color: '#ccc', marginLeft: 4 },
+  slider: { width: '100%', height: 36 },
+  colorSwatchRow: { gap: 8, paddingVertical: 4 },
+  colorSwatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: 'transparent' },
+  colorSwatchSel: { borderColor: '#fff' },
 })

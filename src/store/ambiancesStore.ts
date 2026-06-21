@@ -5,13 +5,16 @@ import type { FixtureState } from '../dmx/DMXService'
 import { dmxService } from '../dmx'
 import { useLightsStore } from './lightsStore'
 import { useSettingsStore } from './settingsStore'
+import type { AmbianceEffect } from '../effects/runner'
 
 export type LightState = FixtureState
+export type { AmbianceEffect }
 
 export interface Ambiance {
   id: string
   name: string
   lightStates: Record<string, LightState>
+  effects: AmbianceEffect[]   // can be empty []
 }
 
 function makeId() {
@@ -22,28 +25,79 @@ export function defaultLightState(): LightState {
   return { r: 0, g: 0, b: 0, w: 0, intensity: 100, isOn: true }
 }
 
-const FIRST_LIGHT_ID = 'light-1'
+const L = 'light-1'
 
 const DEFAULT_AMBIANCES: Ambiance[] = [
+  // Static colors
   {
-    id: 'amb-blue',
-    name: 'Blue',
-    lightStates: { [FIRST_LIGHT_ID]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    id: 'amb-blue',  name: 'Blue',
+    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    effects: [],
   },
   {
-    id: 'amb-red',
-    name: 'Red',
-    lightStates: { [FIRST_LIGHT_ID]: { r: 255, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    id: 'amb-red',   name: 'Red',
+    lightStates: { [L]: { r: 255, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    effects: [],
   },
   {
-    id: 'amb-green',
-    name: 'Green',
-    lightStates: { [FIRST_LIGHT_ID]: { r: 0, g: 200, b: 0, w: 0, intensity: 100, isOn: true } },
+    id: 'amb-green', name: 'Green',
+    lightStates: { [L]: { r: 0, g: 200, b: 0, w: 0, intensity: 100, isOn: true } },
+    effects: [],
   },
   {
-    id: 'amb-white',
-    name: 'White',
-    lightStates: { [FIRST_LIGHT_ID]: { r: 0, g: 0, b: 0, w: 255, intensity: 100, isOn: true } },
+    id: 'amb-white', name: 'White',
+    lightStates: { [L]: { r: 0, g: 0, b: 0, w: 255, intensity: 100, isOn: true } },
+    effects: [],
+  },
+  // Pre-configured examples with effects
+  {
+    id: 'amb-strobe', name: 'Strobe Party',
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-strobe-1', presetId: 'strobe', targetLightIds: 'all',
+      bpm: 600, repeat: true, durationMs: 2000, maxIntensity: 100,
+    }],
+  },
+  {
+    id: 'amb-heartbeat', name: 'Heartbeat',
+    lightStates: { [L]: { r: 200, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-hb-1', presetId: 'heartbeat', targetLightIds: 'all',
+      bpm: 72, repeat: true, durationMs: 2000, maxIntensity: 100,
+    }],
+  },
+  {
+    id: 'amb-breathe', name: 'Ocean Breathe',
+    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-breathe-1', presetId: 'breathe', targetLightIds: 'all',
+      bpm: 12, repeat: true, durationMs: 5000, maxIntensity: 100,
+    }],
+  },
+  {
+    id: 'amb-police', name: 'Alert',
+    lightStates: { [L]: { r: 255, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-police-1', presetId: 'police', targetLightIds: 'all',
+      bpm: 240, repeat: true, durationMs: 2000, maxIntensity: 100,
+    }],
+  },
+  {
+    id: 'amb-sunrise', name: 'Sunrise',
+    lightStates: { [L]: { r: 255, g: 60, b: 0, w: 0, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-rampup-1', presetId: 'ramp_up', targetLightIds: 'all',
+      bpm: 20, repeat: false, durationMs: 6000, maxIntensity: 100,
+    }],
+  },
+  {
+    id: 'amb-colorfade', name: 'Blue → Purple',
+    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    effects: [{
+      id: 'eff-fade-1', presetId: 'color_transition', targetLightIds: 'all',
+      bpm: 20, repeat: true, durationMs: 4000, maxIntensity: 100,
+      toColor: { r: 180, g: 0, b: 255, w: 0 },
+    }],
   },
 ]
 
@@ -51,9 +105,7 @@ function sendDMX(lightStates: Record<string, LightState> | null, blackout: boole
   const lights = useLightsStore.getState().lights
   const { receiverIp, receiverPort, universe } = useSettingsStore.getState()
   const fixtures = lights.map((l) => ({
-    id: l.id,
-    dmxAddress: l.dmxAddress,
-    channelMode: l.channelMode,
+    id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
   }))
   dmxService
     .sync(fixtures, lightStates ?? {}, blackout || lightStates === null, receiverIp, receiverPort, universe)
@@ -77,6 +129,10 @@ interface AmbiancesState {
 
   setLightState: (ambianceId: string, lightId: string, patch: Partial<LightState>) => void
   getLightState: (ambianceId: string, lightId: string) => LightState
+
+  addEffect: (ambianceId: string, effect: AmbianceEffect) => void
+  updateEffect: (ambianceId: string, effect: AmbianceEffect) => void
+  removeEffect: (ambianceId: string, effectId: string) => void
 }
 
 export const useAmbiancesStore = create<AmbiancesState>()(
@@ -87,13 +143,18 @@ export const useAmbiancesStore = create<AmbiancesState>()(
       blackout: false,
 
       activateAmbiance: (id) => {
+        // Lazy import to avoid circular dep at module load time
+        const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
         const ambiance = get().ambiances.find((a) => a.id === id)
         if (!ambiance) return
         set({ activeAmbianceId: id, blackout: false })
         sendDMX(ambiance.lightStates, false)
+        effectsRunner.startAmbianceEffects(ambiance.effects ?? [])
       },
 
       deactivateAll: () => {
+        const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
+        effectsRunner.stopAmbianceEffects()
         set({ activeAmbianceId: null })
         sendDMX(null, false)
       },
@@ -109,15 +170,11 @@ export const useAmbiancesStore = create<AmbiancesState>()(
         }
       },
 
-      toggleBlackout: () => {
-        get().setBlackout(!get().blackout)
-      },
+      toggleBlackout: () => { get().setBlackout(!get().blackout) },
 
       addAmbiance: (name) => {
         const id = `amb-${makeId()}`
-        set((s) => ({
-          ambiances: [...s.ambiances, { id, name, lightStates: {} }],
-        }))
+        set((s) => ({ ambiances: [...s.ambiances, { id, name, lightStates: {}, effects: [] }] }))
         return id
       },
 
@@ -136,10 +193,11 @@ export const useAmbiancesStore = create<AmbiancesState>()(
         const src = get().ambiances.find((a) => a.id === id)
         if (!src) return ''
         const newId = `amb-${makeId()}`
+        const newEffects = (src.effects ?? []).map((e) => ({ ...e, id: `eff-${makeId()}` }))
         set((s) => ({
           ambiances: [
             ...s.ambiances,
-            { id: newId, name: `${src.name} (copy)`, lightStates: { ...src.lightStates } },
+            { id: newId, name: `${src.name} (copy)`, lightStates: { ...src.lightStates }, effects: newEffects },
           ],
         }))
         return newId
@@ -147,15 +205,13 @@ export const useAmbiancesStore = create<AmbiancesState>()(
 
       setLightState: (ambianceId, lightId, patch) => {
         set((s) => {
+          const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
           const ambiances = s.ambiances.map((a) => {
             if (a.id !== ambianceId) return a
             const prev = a.lightStates[lightId] ?? defaultLightState()
-            return {
-              ...a,
-              lightStates: { ...a.lightStates, [lightId]: { ...prev, ...patch } },
-            }
+            return { ...a, lightStates: { ...a.lightStates, [lightId]: { ...prev, ...patch } } }
           })
-          if (s.activeAmbianceId === ambianceId && !s.blackout) {
+          if (s.activeAmbianceId === ambianceId && !s.blackout && !effectsRunner.activeIds.length) {
             const updated = ambiances.find((a) => a.id === ambianceId)
             if (updated) sendDMX(updated.lightStates, false)
           }
@@ -167,6 +223,33 @@ export const useAmbiancesStore = create<AmbiancesState>()(
         const amb = get().ambiances.find((a) => a.id === ambianceId)
         return amb?.lightStates[lightId] ?? defaultLightState()
       },
+
+      addEffect: (ambianceId, effect) =>
+        set((s) => ({
+          ambiances: s.ambiances.map((a) =>
+            a.id === ambianceId
+              ? { ...a, effects: [...(a.effects ?? []), effect] }
+              : a,
+          ),
+        })),
+
+      updateEffect: (ambianceId, effect) =>
+        set((s) => ({
+          ambiances: s.ambiances.map((a) =>
+            a.id === ambianceId
+              ? { ...a, effects: (a.effects ?? []).map((e) => (e.id === effect.id ? effect : e)) }
+              : a,
+          ),
+        })),
+
+      removeEffect: (ambianceId, effectId) =>
+        set((s) => ({
+          ambiances: s.ambiances.map((a) =>
+            a.id === ambianceId
+              ? { ...a, effects: (a.effects ?? []).filter((e) => e.id !== effectId) }
+              : a,
+          ),
+        })),
     }),
     {
       name: 'dmx-ambiances',
