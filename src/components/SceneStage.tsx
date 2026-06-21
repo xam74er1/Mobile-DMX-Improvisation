@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, TextInput } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
@@ -13,6 +13,7 @@ import Svg, {
 } from 'react-native-svg'
 import type { Light } from '../store/lightsStore'
 import type { LightState } from '../store/ambiancesStore'
+import { useZonesStore } from '../store/zonesStore'
 
 // ─────────────────────────────────────────────────────────────
 // Layout constants
@@ -45,6 +46,7 @@ interface Props {
 
 export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap }: Props) {
   const [stageW, setStageW] = useState(1)
+  const { zones, zonesEnabled } = useZonesStore()
 
   function handleMove(lightId: string, pxX: number, pxY: number) {
     // Clamp to stage bounds
@@ -87,6 +89,29 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
         style={styles.stage}
         onLayout={(e) => setStageW(e.nativeEvent.layout.width)}
       >
+        {/* Zones (behind everything) */}
+        {stageW > 1 && zonesEnabled &&
+          zones.map((z) => (
+            <View
+              key={z.id}
+              style={{
+                position: 'absolute',
+                left: z.x * stageW,
+                top: z.y * STAGE_HEIGHT,
+                width: z.w * stageW,
+                height: z.h * (STAGE_HEIGHT - PAD_BOTTOM),
+                backgroundColor: z.tint,
+                borderRightWidth: 1,
+                borderColor: z.border,
+                justifyContent: 'flex-start',
+                alignItems: 'center',
+                paddingTop: 6,
+              }}
+            >
+              <Text style={[styles.zoneLabel, { color: z.border }]}>{z.name}</Text>
+            </View>
+          ))}
+
         {stageW > 1 && <GridOverlay stageW={stageW} />}
 
         <View style={styles.audienceBar}>
@@ -368,6 +393,7 @@ const styles = StyleSheet.create({
   emptyMsg: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: 'rgba(255,255,255,0.12)', fontSize: 13 },
   hint: { fontSize: 11, color: '#333', textAlign: 'center', marginTop: 6, marginBottom: 4 },
+  zoneLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 1, opacity: 0.8 },
   badge: {
     alignSelf: 'center',
     marginTop: -2,

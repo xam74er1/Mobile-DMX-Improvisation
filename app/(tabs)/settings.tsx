@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SceneStage } from '../../src/components/SceneStage'
 import { useLightsStore, type Light, type LightColor } from '../../src/store/lightsStore'
+import { useZonesStore } from '../../src/store/zonesStore'
 import { useSettingsStore } from '../../src/store/settingsStore'
 import { useAmbiancesStore, type LightState } from '../../src/store/ambiancesStore'
 import { dmxService } from '../../src/dmx'
@@ -358,6 +359,10 @@ function LightsTab() {
         {lights.length === 0 && (
           <Text style={styles.emptyHint}>No lights yet. Tap Add to create your first fixture.</Text>
         )}
+
+        {/* ── Stage zones ── */}
+        <ZoneEditor />
+
         <View style={{ height: 24 }} />
       </ScrollView>
 
@@ -413,9 +418,13 @@ function LightsTab() {
               </Text>
               <Slider
                 value={editRotation}
-                onValueChange={setEditRotation}
-                minimumValue={0}
-                maximumValue={359}
+                onValueChange={(v) => {
+                  setEditRotation(v)
+                  // Live preview: update the light icon immediately
+                  if (editDialog) updateLight(editDialog.id, { rotation: Math.round(v) })
+                }}
+                minimumValue={-180}
+                maximumValue={180}
                 step={1}
                 minimumTrackTintColor="#ff6b35"
                 maximumTrackTintColor="#333"
@@ -429,7 +438,10 @@ function LightsTab() {
               </Text>
               <Slider
                 value={editBeamWidth}
-                onValueChange={setEditBeamWidth}
+                onValueChange={(v) => {
+                  setEditBeamWidth(v)
+                  if (editDialog) updateLight(editDialog.id, { beamWidth: Math.round(v * 10) / 10 })
+                }}
                 minimumValue={0.3}
                 maximumValue={2.5}
                 step={0.1}
@@ -482,16 +494,76 @@ function LightsTab() {
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONE EDITOR (inside Lights tab scroll)
+// ─────────────────────────────────────────────────────────────────────────────
+function ZoneEditor() {
+  const { zones, zonesEnabled, setZonesEnabled, renameZone, resetZones } = useZonesStore()
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null)
+  const [nameInput, setNameInput] = useState('')
+
+  function startRename(id: string, currentName: string) {
+    setEditingZoneId(id)
+    setNameInput(currentName)
+  }
+  function commitRename(id: string) {
+    if (nameInput.trim()) renameZone(id, nameInput.trim())
+    setEditingZoneId(null)
+  }
+
+  return (
+    <View style={styles.zoneSection}>
+      <View style={styles.zoneSectionHeader}>
+        <Text style={styles.sectionTitle}>STAGE ZONES</Text>
+        <View style={styles.zoneSectionRight}>
+          <Switch value={zonesEnabled} onValueChange={setZonesEnabled} color="#ff6b35" />
+          <Button mode="text" compact onPress={resetZones} style={{ marginLeft: 4 }}>Reset</Button>
+        </View>
+      </View>
+      <Text style={styles.hint}>Rename zones to match your stage layout.</Text>
+      {zonesEnabled && zones.map((zone) => (
+        <View key={zone.id} style={styles.zoneRow}>
+          <View style={[styles.zoneColorBar, { backgroundColor: zone.border }]} />
+          {editingZoneId === zone.id ? (
+            <TextInput
+              style={styles.zoneNameInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              onBlur={() => commitRename(zone.id)}
+              onSubmitEditing={() => commitRename(zone.id)}
+              autoFocus
+              selectTextOnFocus
+            />
+          ) : (
+            <Text style={styles.zoneRowName}>{zone.name}</Text>
+          )}
+          <IconButton
+            icon="pencil"
+            size={16}
+            iconColor="#666"
+            onPress={() => startRename(zone.id, zone.name)}
+          />
+        </View>
+      ))}
+    </View>
+  )
+}
+
 function rotationLabel(deg: number): string {
-  const d = ((deg % 360) + 360) % 360
-  if (d < 23 || d >= 338) return '↓ Audience'
-  if (d < 68)  return '↙'
-  if (d < 113) return '← Left'
-  if (d < 158) return '↖'
-  if (d < 203) return '↑ Back'
-  if (d < 248) return '↗'
-  if (d < 293) return '→ Right'
-  return '↘'
+  // -180..180 range: 0 = audience, ±180 = back
+  const a = Math.abs(deg)
+  if (a < 22)  return '↓ Audience'
+  if (deg > 0) {
+    if (deg < 67)  return '↙'
+    if (deg < 112) return '← Left'
+    if (deg < 157) return '↖'
+    return '↑ Back'
+  } else {
+    if (deg > -67)  return '↘'
+    if (deg > -112) return '→ Right'
+    if (deg > -157) return '↗'
+    return '↑ Back'
+  }
 }
 
 function beamWidthLabel(v: number): string {
@@ -574,4 +646,20 @@ const styles = StyleSheet.create({
   },
   colorSwatchSelected: { borderColor: '#ffffff' },
   slider: { width: '100%', height: 36, marginBottom: 2 },
+
+  zoneSection: { marginTop: 16, paddingBottom: 4 },
+  zoneSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  zoneSectionRight: { flexDirection: 'row', alignItems: 'center' },
+  zoneRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#141414', borderRadius: 8,
+    marginBottom: 6, overflow: 'hidden',
+  },
+  zoneColorBar: { width: 4, height: '100%', minHeight: 44 },
+  zoneRowName: { flex: 1, fontSize: 14, color: '#fff', paddingHorizontal: 12 },
+  zoneNameInput: {
+    flex: 1, fontSize: 14, color: '#fff',
+    paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: '#1a1a1a',
+  },
 })

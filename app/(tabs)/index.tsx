@@ -4,6 +4,7 @@ import { FAB, Portal, Dialog, TextInput, Button, Text } from 'react-native-paper
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlackoutButton } from '../../src/components/BlackoutButton'
 import { AmbianceCard } from '../../src/components/AmbianceCard'
+import { EffectsBar } from '../../src/components/EffectsBar'
 import { useAmbiancesStore } from '../../src/store/ambiancesStore'
 import { useRouter } from 'expo-router'
 
@@ -197,6 +198,9 @@ export default function ControlScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Effects bar pinned at bottom */}
+      <EffectsBar />
     </SafeAreaView>
   )
 }
