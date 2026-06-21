@@ -102,6 +102,17 @@ export const useLightsStore = create<LightsState>()(
     {
       name: 'dmx-lights',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      migrate: (state: any) => ({
+        ...state,
+        // Back-fill defaultColor for lights that existed before this field was added
+        lights: (state.lights ?? []).map((l: any) => ({
+          defaultColor: { r: 255, g: 255, b: 255, w: 0 },
+          sceneX: 0.5,
+          sceneY: 0.3,
+          ...l,
+        })),
+      }),
     },
   ),
 )

@@ -59,10 +59,11 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
           lights.map((light) => {
             // Resolve color: active ambiance > default color > dim fallback
             const amb = activeLightStates?.[light.id] ?? null
-            let r = light.defaultColor.r
-            let g = light.defaultColor.g
-            let b = light.defaultColor.b
-            let w = light.defaultColor.w
+            const dc = light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }
+            let r = dc.r
+            let g = dc.g
+            let b = dc.b
+            let w = dc.w
             let intensity = 100
             let isOn = false  // off when no ambiance
 

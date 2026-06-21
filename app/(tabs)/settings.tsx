@@ -326,8 +326,8 @@ function LightsTab() {
         </View>
 
         {lights.map((light) => {
-          const dc = light.defaultColor
-          const defColorStr = `rgb(${dc.r + dc.w},${dc.g + dc.w},${dc.b + dc.w})`
+          const dc = light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }
+          const defColorStr = `rgb(${Math.min(255, dc.r + dc.w)},${Math.min(255, dc.g + dc.w)},${Math.min(255, dc.b + dc.w)})`
           return (
             <View key={light.id} style={styles.lightRow}>
               <View style={[styles.colorDot, { backgroundColor: defColorStr }]} />
