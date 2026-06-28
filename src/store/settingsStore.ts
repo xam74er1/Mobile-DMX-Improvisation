@@ -14,7 +14,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      receiverIp: '2.0.0.1',
+      receiverIp: '127.0.0.1', // Default to localhost for testing with the visualizer
       receiverPort: 6454,
       universe: 0,
 
