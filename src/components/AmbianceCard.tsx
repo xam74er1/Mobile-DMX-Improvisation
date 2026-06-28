@@ -26,8 +26,17 @@ export function AmbianceCard({ ambiance, isActive, onPress, onLongPress }: Props
       borderless
     >
       <View style={styles.content}>
-        {/* Color swatch */}
-        <View style={[styles.swatch, { backgroundColor: previewColor }]} />
+        {/* Icon or color swatch */}
+        {ambiance.icon ? (
+          <MaterialIcons
+            name={ambiance.icon as any}
+            size={26}
+            color={previewColor}
+            style={styles.icon}
+          />
+        ) : (
+          <View style={[styles.swatch, { backgroundColor: previewColor }]} />
+        )}
 
         <Text
           style={[styles.name, { color: isActive && !isDark ? '#000000' : '#ffffff' }]}
@@ -92,6 +101,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     gap: 6,
+  },
+  icon: {
+    marginBottom: 2,
   },
   swatch: {
     width: 28,
