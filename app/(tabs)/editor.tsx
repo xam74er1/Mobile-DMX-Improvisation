@@ -6,7 +6,7 @@ import {
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useFocusEffect } from 'expo-router'
 import Slider from '@react-native-community/slider'
 import { SimpleColorPicker } from '../../src/components/SimpleColorPicker'
 import { WheelColorPicker } from '../../src/components/WheelColorPicker'
@@ -29,10 +29,12 @@ export default function EditorScreen() {
   const activeAmbianceId = useAmbiancesStore((s) => s.activeAmbianceId)
   const lights = useLightsStore((s) => s.lights)
 
-  const [editingId, setEditingId] = useState<string>(
-    params.ambianceId ?? ambiances[0]?.id ?? '',
+  const initialAmbianceId = params.ambianceId ?? activeAmbianceId ?? ambiances[0]?.id ?? ''
+
+  const [editingId, setEditingId] = useState<string>(initialAmbianceId)
+  const [selectedLightId, setSelectedLightId] = useState<string>(() =>
+    pickBestLight(initialAmbianceId, ambiances, lights),
   )
-  const [selectedLightId, setSelectedLightId] = useState<string>(lights[0]?.id ?? '')
   const [allLights, setAllLights] = useState(false)
   const [renameDialog, setRenameDialog] = useState(false)
   const [renameInput, setRenameInput] = useState('')
@@ -41,13 +43,21 @@ export default function EditorScreen() {
   const [effectDialog, setEffectDialog] = useState<'add' | 'edit' | null>(null)
   const [editingEffect, setEditingEffect] = useState<AmbianceEffect | null>(null)
 
-  useEffect(() => {
-    if (params.ambianceId) setEditingId(params.ambianceId)
-  }, [params.ambianceId])
+  // Every time the Editor tab gains focus, sync to the active ambiance and its best light.
+  // useFocusEffect is needed because this is a persistent tab (useState init only runs once).
+  useFocusEffect(
+    React.useCallback(() => {
+      const { activeAmbianceId: activeId, ambiances: ambs } = useAmbiancesStore.getState()
+      const { lights: ls } = useLightsStore.getState()
+      const id = params.ambianceId ?? activeId ?? ambs[0]?.id ?? ''
+      setEditingId(id)
+      setSelectedLightId(pickBestLight(id, ambs, ls))
+    }, [params.ambianceId]),
+  )
 
   useEffect(() => {
     if (lights.length > 0 && !lights.find((l) => l.id === selectedLightId)) {
-      setSelectedLightId(lights[0].id)
+      setSelectedLightId(pickBestLight(editingId, ambiances, lights))
     }
   }, [lights])
 
@@ -75,6 +85,9 @@ export default function EditorScreen() {
       repeat: EFFECT_PRESETS[0].defaultRepeat,
       durationMs: EFFECT_PRESETS[0].defaultDurationMs,
       maxIntensity: 100,
+      fromColor: undefined,
+      colorB: undefined,
+      toColor: undefined,
     })
     setEffectDialog('add')
   }
@@ -280,6 +293,7 @@ export default function EditorScreen() {
                             repeat: p.defaultRepeat,
                             toColor: p.defaultToColor,
                             fromColor: undefined,
+                            colorB: undefined,
                           })
                         }
                         style={[styles.presetPickBtn, isActive && styles.presetPickBtnActive]}
@@ -387,35 +401,102 @@ export default function EditorScreen() {
                   minimumTrackTintColor="#ff6b35" maximumTrackTintColor="#333" thumbTintColor="#ff6b35"
                   style={styles.slider} />
 
-                {/* Color transition: from + to color swatches */}
-                {EFFECT_PRESET_MAP[editingEffect.presetId]?.kind === 'color_transition' && (
-                  <>
-                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>From Color</Text>
-                    <View style={styles.colorSwatchRow}>
-                      {DEFAULT_COLORS.map((c) => {
-                        const fc = editingEffect.fromColor ?? EFFECT_PRESET_MAP[editingEffect.presetId]?.color
-                        const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
-                        return (
-                          <Pressable key={`from-${c.hex}`}
-                            onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
-                            style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
-                        )
-                      })}
-                    </View>
-                    <Text style={[styles.dialogLabel, { marginTop: 10 }]}>To Color</Text>
-                    <View style={styles.colorSwatchRow}>
-                      {DEFAULT_COLORS.map((c) => {
-                        const tc = editingEffect.toColor
-                        const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
-                        return (
-                          <Pressable key={`to-${c.hex}`}
-                            onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
-                            style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
-                        )
-                      })}
-                    </View>
-                  </>
-                )}
+                {/* Color pickers — shown only for effects that change color */}
+                {(() => {
+                  const preset = EFFECT_PRESET_MAP[editingEffect.presetId]
+                  if (!preset) return null
+
+                  if (preset.intensityOnly) {
+                    return (
+                      <View style={styles.intensityOnlyNote}>
+                        <MaterialIcons name="palette" size={14} color="#555" />
+                        <Text style={styles.intensityOnlyText}>
+                          Uses each light's own color — only intensity changes
+                        </Text>
+                      </View>
+                    )
+                  }
+
+                  if (preset.kind === 'color_transition') {
+                    const fc = editingEffect.fromColor ?? preset.color
+                    const tc = editingEffect.toColor ?? preset.defaultToColor
+                    return (
+                      <>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>From Color</Text>
+                        <View style={styles.colorSwatchRow}>
+                          {DEFAULT_COLORS.map((c) => {
+                            const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
+                            return (
+                              <Pressable key={`from-${c.hex}`}
+                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                            )
+                          })}
+                        </View>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>To Color</Text>
+                        <View style={styles.colorSwatchRow}>
+                          {DEFAULT_COLORS.map((c) => {
+                            const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
+                            return (
+                              <Pressable key={`to-${c.hex}`}
+                                onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                            )
+                          })}
+                        </View>
+                      </>
+                    )
+                  }
+
+                  if (preset.kind === 'alternate') {
+                    const ca = editingEffect.fromColor ?? preset.color
+                    const cb = editingEffect.colorB ?? preset.colorB ?? preset.color
+                    return (
+                      <>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Color A</Text>
+                        <View style={styles.colorSwatchRow}>
+                          {DEFAULT_COLORS.map((c) => {
+                            const sel = ca && ca.r === c.r && ca.g === c.g && ca.b === c.b
+                            return (
+                              <Pressable key={`ca-${c.hex}`}
+                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                            )
+                          })}
+                        </View>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Color B</Text>
+                        <View style={styles.colorSwatchRow}>
+                          {DEFAULT_COLORS.map((c) => {
+                            const sel = cb && cb.r === c.r && cb.g === c.g && cb.b === c.b
+                            return (
+                              <Pressable key={`cb-${c.hex}`}
+                                onPress={() => setEditingEffect({ ...editingEffect, colorB: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                            )
+                          })}
+                        </View>
+                      </>
+                    )
+                  }
+
+                  // heartbeat and any other single-color effect
+                  const fc = editingEffect.fromColor ?? preset.color
+                  return (
+                    <>
+                      <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Flash Color</Text>
+                      <View style={styles.colorSwatchRow}>
+                        {DEFAULT_COLORS.map((c) => {
+                          const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
+                          return (
+                            <Pressable key={`fc-${c.hex}`}
+                              onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                              style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
+                          )
+                        })}
+                      </View>
+                    </>
+                  )
+                })()}
 
                 {/* Repeat */}
                 {EFFECT_PRESET_MAP[editingEffect.presetId]?.defaultRepeat !== undefined && (
@@ -438,6 +519,27 @@ export default function EditorScreen() {
       </Portal>
     </SafeAreaView>
   )
+}
+
+function pickBestLight(
+  ambianceId: string,
+  ambiances: { id: string; lightStates: Record<string, { isOn?: boolean; r?: number; g?: number; b?: number; w?: number }> }[],
+  lights: { id: string }[],
+): string {
+  if (lights.length === 0) return ''
+  const ambiance = ambiances.find((a) => a.id === ambianceId)
+  if (ambiance) {
+    // Priority 1: first light with explicitly stored state that is ON and has color
+    for (const light of lights) {
+      const s = ambiance.lightStates[light.id]
+      if (s && s.isOn && ((s.r ?? 0) > 0 || (s.g ?? 0) > 0 || (s.b ?? 0) > 0 || (s.w ?? 0) > 0)) return light.id
+    }
+    // Priority 2: first light with any explicitly stored state
+    for (const light of lights) {
+      if (ambiance.lightStates[light.id]) return light.id
+    }
+  }
+  return lights[0].id
 }
 
 function getStateColor(state: ReturnType<typeof defaultLightState>): string {
@@ -501,4 +603,9 @@ const styles = StyleSheet.create({
   colorSwatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
   colorSwatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: 'transparent' },
   colorSwatchSel: { borderColor: '#fff' },
+  intensityOnlyNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10, padding: 8, backgroundColor: '#1a1a1a', borderRadius: 8,
+  },
+  intensityOnlyText: { fontSize: 11, color: '#555', flex: 1 },
 })
