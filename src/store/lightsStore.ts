@@ -17,7 +17,7 @@ export interface Light {
   channelMode: ChannelMode
   sceneX: number      // 0.0–1.0 fraction of stage width  (lens centre)
   sceneY: number      // 0.0–1.0 fraction of stage height (lens centre)
-  rotation: number    // degrees — 0 = beam toward audience (↓), 90 = right, 180 = back
+  rotation: number    // degrees — 0 = beam toward stage/floor (↓), 90 = right, 180 = toward audience (top)
   beamWidth: number   // 0.3 (tight spot) → 2.5 (wide wash), default 1.0
   defaultColor: LightColor
 }

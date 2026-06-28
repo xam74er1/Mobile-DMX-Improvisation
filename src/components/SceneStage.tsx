@@ -31,8 +31,8 @@ const MIN_DIST = ICON_W * 1.15
 
 // Pixel padding so icons don't go outside stage bounds
 const PAD_X = ICON_W / 2 + 2
-const PAD_TOP = Math.round(ICON_H * LENS_Y_FRAC) + 2
-const PAD_BOTTOM = 28   // audience bar height + margin
+const PAD_TOP = 28      // audience bar at top (height 24 + small gap)
+const PAD_BOTTOM = 8    // small floor margin at the stage bottom
 
 // ─────────────────────────────────────────────────────────────
 // Public component
@@ -115,7 +115,7 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
         {stageW > 1 && <GridOverlay stageW={stageW} />}
 
         <View style={styles.audienceBar}>
-          <Text style={styles.audienceLabel}>▼  AUDIENCE  ▼</Text>
+          <Text style={styles.audienceLabel}>▲  AUDIENCE  ▲</Text>
         </View>
 
         {lights.length === 0 && (
@@ -381,9 +381,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   audienceBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: 24,
+    position: 'absolute', top: 0, left: 0, right: 0, height: 24,
     backgroundColor: 'rgba(255,255,255,0.03)',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)',
     justifyContent: 'center', alignItems: 'center',
   },
   audienceLabel: {
