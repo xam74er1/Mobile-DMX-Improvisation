@@ -7,13 +7,27 @@ const UdpSocket = require('react-native-udp').default ?? require('react-native-u
 
 export class ArtNetClient implements IDMXClient {
   private socket: ReturnType<typeof UdpSocket.createSocket> | null = null
+  private bindingPromise: Promise<void> | null = null
 
-  private ensureSocket() {
-    if (this.socket) return
+  private ensureSocket(): Promise<void> {
+    if (this.bindingPromise) return this.bindingPromise
     this.socket = UdpSocket.createSocket({ type: 'udp4', debug: false })
     this.socket!.on('error', (err: Error) => {
       console.warn('[ArtNet] socket error:', err.message)
     })
+    this.bindingPromise = new Promise<void>((resolve) => {
+      this.socket!.once('listening', () => {
+        console.log('[ArtNet] bound to port 6454')
+        resolve()
+      })
+      this.socket!.once('error', () => {
+        // Bind failed (e.g. port already in use) — still usable with ephemeral port
+        console.warn('[ArtNet] could not bind to port 6454, using ephemeral port')
+        resolve()
+      })
+      this.socket!.bind(6454)
+    })
+    return this.bindingPromise
   }
 
   async sendUniverse(
@@ -22,7 +36,7 @@ export class ArtNetClient implements IDMXClient {
     universe: number,
     channels: Uint8Array,
   ): Promise<void> {
-    this.ensureSocket()
+    await this.ensureSocket()
     const packet = buildArtNetPacket(universe, channels)
 
     return new Promise<void>((resolve) => {
@@ -40,6 +54,7 @@ export class ArtNetClient implements IDMXClient {
       } catch {}
       this.socket = null
     }
+    this.bindingPromise = null
   }
 }
 
