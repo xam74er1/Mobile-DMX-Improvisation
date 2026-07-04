@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ScrollView, StyleSheet, View, TouchableOpacity, Modal } from 'react-native'
+import { ScrollView, StyleSheet, View, TouchableOpacity, Modal, Pressable } from 'react-native'
 import { FAB, Portal, Dialog, TextInput, Button, Text } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -16,6 +16,7 @@ import { EffectsBar } from '../../src/components/EffectsBar'
 import { useAmbiancesStore } from '../../src/store/ambiancesStore'
 import type { AmbianceCategory } from '../../src/store/ambiancesStore'
 import { useRouter } from 'expo-router'
+import { effectsRunner } from '../../src/effects/runner'
 
 // ─────────────────────────────────────────────────────────────
 // Icon picker options (MaterialIcons names)
@@ -129,6 +130,26 @@ export default function ControlScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <BlackoutButton />
+
+        {/* ── Fade controls ── */}
+        <View style={styles.fadeRow}>
+          <Pressable style={styles.fadeBtn}
+            onPress={() => effectsRunner.startSlot({
+              id: 'fade-in-manual', presetId: 'ramp_up',
+              targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 3000, maxIntensity: 100,
+            })}>
+            <MaterialIcons name="trending-up" size={18} color="#ff6b35" />
+            <Text style={styles.fadeBtnLabel}>Fade In</Text>
+          </Pressable>
+          <Pressable style={styles.fadeBtn}
+            onPress={() => effectsRunner.startSlot({
+              id: 'fade-out-manual', presetId: 'ramp_down',
+              targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 3000, maxIntensity: 100,
+            })}>
+            <MaterialIcons name="trending-down" size={18} color="#aaa" />
+            <Text style={[styles.fadeBtnLabel, { color: '#aaa' }]}>Fade Out</Text>
+          </Pressable>
+        </View>
 
         {/* ── Category sections ── */}
         {grouped.map(({ category, items }) => (
@@ -664,6 +685,13 @@ const styles = StyleSheet.create({
   emptyCategory:  { fontSize: 12, color: '#333', paddingHorizontal: 22, paddingBottom: 8, fontStyle: 'italic' },
   grid:           { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
   cardWrapper:    { width: '50%' },
+  fadeRow:     { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 12 },
+  fadeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#141414', borderRadius: 12, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#2a2a2a',
+  },
+  fadeBtnLabel: { fontSize: 13, fontWeight: '600', color: '#ff6b35' },
   fab:            { position: 'absolute', bottom: 24, right: 20, backgroundColor: '#ff6b35' },
   menuOptions:    { gap: 4 },
   pickerLabel:    { fontSize: 12, color: '#888', marginBottom: 6 },
