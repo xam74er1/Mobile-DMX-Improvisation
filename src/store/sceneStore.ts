@@ -12,6 +12,8 @@ export interface RGBW {
   g: number
   b: number
   w: number
+  a?: number
+  uv?: number
 }
 
 interface SceneState {
@@ -41,6 +43,8 @@ function defaultFixtureState(id: string): FixtureState {
     g: preset.g,
     b: preset.b,
     w: preset.w,
+    a: preset.a ?? 0,
+    uv: preset.uv ?? 0,
     intensity: 100,
     isOn: false,
   }
@@ -112,6 +116,8 @@ export const useSceneStore = create<SceneState>()(
             g: state.g,
             b: state.b,
             w: state.w,
+            a: state.a,
+            uv: state.uv,
             intensity: state.intensity,
           },
         })
@@ -150,6 +156,15 @@ export const useSceneStore = create<SceneState>()(
     {
       name: 'dmx-scene',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      migrate: (state: any) => ({
+        ...state,
+        channels: Object.fromEntries(
+          Object.entries(state.channels ?? {}).map(([k, v]: [string, any]) => [
+            k, { a: 0, uv: 0, ...v },
+          ]),
+        ),
+      }),
       // Only persist color/intensity data; transient UI state is re-derived on mount
       partialize: (state) => ({
         channels: state.channels,

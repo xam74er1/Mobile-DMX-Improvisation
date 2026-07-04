@@ -29,7 +29,7 @@ function makeId() {
 }
 
 export function defaultLightState(): LightState {
-  return { r: 0, g: 0, b: 0, w: 0, intensity: 100, isOn: true }
+  return { r: 0, g: 0, b: 0, w: 0, a: 0, uv: 0, intensity: 100, isOn: true }
 }
 
 const L = 'light-1'
@@ -39,101 +39,111 @@ export const DEFAULT_CATEGORIES: AmbianceCategory[] = [
   { id: 'cat-effects', name: 'Effects' },
 ]
 
-const DEFAULT_AMBIANCES: Ambiance[] = [
+export const DEFAULT_AMBIANCES: Ambiance[] = [
   // ── Static colors ──────────────────────────────────────────
   {
     id: 'amb-blue',   name: 'Blue',   icon: 'wb-incandescent', categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 0,   g: 68,  b: 255, w: 0,   intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 0,   g: 68,  b: 255, w: 0,   a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
   {
     id: 'amb-red',    name: 'Red',    icon: 'wb-incandescent', categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 255, g: 0,   b: 0,   w: 0,   intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 255, g: 0,   b: 0,   w: 0,   a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
   {
     id: 'amb-green',  name: 'Green',  icon: 'wb-incandescent', categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 0,   g: 200, b: 0,   w: 0,   intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 0,   g: 200, b: 0,   w: 0,   a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
   {
     id: 'amb-white',  name: 'White',  icon: 'wb-sunny',        categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 0,   g: 0,   b: 0,   w: 255, intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 0,   g: 0,   b: 0,   w: 255, a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
   {
     id: 'amb-purple', name: 'Purple', icon: 'wb-incandescent', categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 160, g: 0,   b: 255, w: 0,   intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 160, g: 0,   b: 255, w: 0,   a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
   {
     id: 'amb-cyan',   name: 'Cyan',   icon: 'wb-incandescent', categoryId: 'cat-colors',
-    lightStates: { [L]: { r: 0,   g: 220, b: 220, w: 0,   intensity: 100, isOn: true } }, effects: [],
+    lightStates: { [L]: { r: 0,   g: 220, b: 220, w: 0,   a: 0, uv: 0, intensity: 100, isOn: true } }, effects: [],
   },
 
   // ── Effects — one example per preset kind ──────────────────
   // strobe: classic stroboscope (rapid white flashes)
   {
     id: 'amb-strobe', name: 'Strobe Party', icon: 'flash-on', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-strobe-1', presetId: 'strobe', targetLightIds: 'all', bpm: 600, repeat: true,  durationMs: 2000, maxIntensity: 100 }],
   },
   // beat: single pulse on each beat — good for music sync
   {
     id: 'amb-beat', name: 'Beat Drop', icon: 'music-note', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-beat-1', presetId: 'beat', targetLightIds: 'all', bpm: 120, repeat: true, durationMs: 4000, maxIntensity: 100 }],
   },
   // heartbeat: lub-dub double pulse, red
   {
     id: 'amb-heartbeat', name: 'Heartbeat', icon: 'flare', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 200, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 200, g: 0, b: 0, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-hb-1', presetId: 'heartbeat', targetLightIds: 'all', bpm: 72, repeat: true, durationMs: 2000, maxIntensity: 100 }],
   },
   // alternate: red/blue police flash
   {
     id: 'amb-police', name: 'Alert', icon: 'blur-on', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 0, b: 0, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 0, b: 0, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-police-1', presetId: 'police', targetLightIds: 'all', bpm: 240, repeat: true, durationMs: 2000, maxIntensity: 100 }],
   },
   // breathe: slow sine-wave brightness oscillation
   {
     id: 'amb-breathe', name: 'Ocean Breathe', icon: 'waves', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-breathe-1', presetId: 'breathe', targetLightIds: 'all', bpm: 12, repeat: true, durationMs: 5000, maxIntensity: 100 }],
   },
   // breathe variation: warm orange glow
   {
     id: 'amb-warm-breathe', name: 'Warm Breathe', icon: 'wb-incandescent', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 80, b: 10, w: 30, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 80, b: 10, w: 30, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-wbreathе-1', presetId: 'breathe', targetLightIds: 'all', bpm: 8, repeat: true, durationMs: 7500, maxIntensity: 90 }],
   },
   // ramp_up: intensity rises from 0 — great for scene entrances
   {
     id: 'amb-sunrise', name: 'Sunrise', icon: 'wb-sunny', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 60, b: 0, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 60, b: 0, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-rampup-1', presetId: 'ramp_up', targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 6000, maxIntensity: 100 }],
   },
   // ramp_down: intensity falls to 0 — great for scene endings
   {
     id: 'amb-ramp-down', name: 'Fade Out', icon: 'brightness-5', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-rampdown-1', presetId: 'ramp_down', targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 4000, maxIntensity: 100 }],
   },
   // flash: single ultra-bright white burst
   {
     id: 'amb-flash', name: 'Gunshot Flash', icon: 'star', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-flash-1', presetId: 'flash', targetLightIds: 'all', bpm: 120, repeat: false, durationMs: 70, maxIntensity: 100 }],
   },
   // color_transition: smooth color cross-fade
   {
     id: 'amb-colorfade', name: 'Blue → Purple', icon: 'gradient', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 0, g: 68, b: 255, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-fade-1', presetId: 'color_transition', targetLightIds: 'all', bpm: 20, repeat: true, durationMs: 4000, maxIntensity: 100, toColor: { r: 180, g: 0, b: 255, w: 0 } }],
   },
+  // clap: celebration burst for applause moments
+  {
+    id: 'amb-clap', name: 'Applause', icon: 'stars', categoryId: 'cat-effects',
+    lightStates: { [L]: { r: 255, g: 255, b: 255, w: 255, a: 0, uv: 0, intensity: 100, isOn: true } },
+    effects: [{ id: 'eff-clap-1', presetId: 'clap', targetLightIds: 'all', bpm: 80, repeat: true, durationMs: 4000, maxIntensity: 100 }],
+  },
+
   // color_transition variation: red → orange sunset
   {
     id: 'amb-sunset', name: 'Red Sunset', icon: 'filter-drama', categoryId: 'cat-effects',
-    lightStates: { [L]: { r: 255, g: 10, b: 0, w: 0, intensity: 100, isOn: true } },
+    lightStates: { [L]: { r: 255, g: 10, b: 0, w: 0, a: 0, uv: 0, intensity: 100, isOn: true } },
     effects: [{ id: 'eff-sunset-1', presetId: 'color_transition', targetLightIds: 'all', bpm: 15, repeat: true, durationMs: 5000, maxIntensity: 100, toColor: { r: 255, g: 130, b: 0, w: 0 } }],
   },
 ]
+
+export const DEFAULT_AMBIANCE_IDS: Set<string> = new Set(DEFAULT_AMBIANCES.map((a) => a.id))
+export const DEFAULT_CATEGORY_IDS: Set<string> = new Set(DEFAULT_CATEGORIES.map((c) => c.id))
 
 function sendDMX(lightStates: Record<string, LightState> | null, blackout: boolean) {
   const lights = useLightsStore.getState().lights
@@ -341,6 +351,26 @@ export const useAmbiancesStore = create<AmbiancesState>()(
     {
       name: 'dmx-ambiances',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 3,
+      migrate: (state: any) => {
+        // Add a/uv to existing lightStates (v1→v2, idempotent)
+        const ambiances = (state.ambiances ?? []).map((amb: any) => ({
+          ...amb,
+          lightStates: Object.fromEntries(
+            Object.entries(amb.lightStates ?? {}).map(([k, v]: [string, any]) => [
+              k, { a: 0, uv: 0, ...v },
+            ]),
+          ),
+        }))
+        // Inject any missing default ambiances (v2→v3)
+        const existingIds = new Set(ambiances.map((a: any) => a.id))
+        const merged = [...ambiances, ...DEFAULT_AMBIANCES.filter((a) => !existingIds.has(a.id))]
+        // Inject any missing default categories
+        const cats = state.categories ?? []
+        const existingCatIds = new Set(cats.map((c: any) => c.id))
+        const mergedCats = [...cats, ...DEFAULT_CATEGORIES.filter((c) => !existingCatIds.has(c.id))]
+        return { ...state, ambiances: merged, categories: mergedCats }
+      },
       partialize: (s) => ({
         ambiances: s.ambiances,
         categories: s.categories,

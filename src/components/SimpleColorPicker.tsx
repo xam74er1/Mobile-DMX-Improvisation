@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper'
 import { DEFAULT_COLORS } from '../constants/defaultColors'
 
 interface Props {
-  onSelectColor: (r: number, g: number, b: number, w: number) => void
+  onSelectColor: (r: number, g: number, b: number, w: number, a: number, uv: number) => void
   selectedHex?: string
 }
 
@@ -17,7 +17,7 @@ export function SimpleColorPicker({ onSelectColor, selectedHex }: Props) {
           return (
             <Pressable
               key={color.hex}
-              onPress={() => onSelectColor(color.r, color.g, color.b, color.w)}
+              onPress={() => onSelectColor(color.r, color.g, color.b, color.w, color.a, color.uv)}
               style={[
                 styles.swatch,
                 { backgroundColor: color.hex },

@@ -1,8 +1,8 @@
 export type EffectKind =
-  | 'flash' | 'beat' | 'strobe' | 'heartbeat' | 'alternate'
+  | 'flash' | 'beat' | 'strobe' | 'heartbeat' | 'alternate' | 'clap'
   | 'ramp_up' | 'ramp_down' | 'breathe' | 'color_transition'
 
-export interface RGBW { r: number; g: number; b: number; w: number }
+export interface RGBW { r: number; g: number; b: number; w: number; a?: number; uv?: number }
 
 export interface EffectPreset {
   id: string
@@ -122,6 +122,22 @@ export const EFFECT_PRESETS: EffectPreset[] = [
     defaultMaxIntensity: 100,
     defaultRepeat: true,
     intensityOnly: false,
+    bpmScaled: true,
+  },
+
+  {
+    id: 'clap',
+    name: 'Clap',
+    icon: 'stars',
+    description: '3 rapid celebration bursts per beat — for applause moments',
+    kind: 'clap',
+    defaultBpm: 80, minBpm: 30, maxBpm: 160,
+    flashRatio: 0.07,  // width of each individual flash within the period
+    color: WHITE,
+    defaultDurationMs: 4000,
+    defaultMaxIntensity: 100,
+    defaultRepeat: true,
+    intensityOnly: true,
     bpmScaled: true,
   },
 

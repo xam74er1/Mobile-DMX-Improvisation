@@ -4,15 +4,16 @@ import {
   Text, Button, Switch, Divider, Chip, Portal, Dialog,
   TextInput, IconButton, Checkbox,
 } from 'react-native-paper'
+import Slider from '../../src/components/AppSlider'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useFocusEffect } from 'expo-router'
-import Slider from '@react-native-community/slider'
 import { SimpleColorPicker } from '../../src/components/SimpleColorPicker'
 import { WheelColorPicker } from '../../src/components/WheelColorPicker'
 import { IntensitySlider } from '../../src/components/IntensitySlider'
 import { useAmbiancesStore, defaultLightState, type AmbianceEffect } from '../../src/store/ambiancesStore'
 import { useLightsStore } from '../../src/store/lightsStore'
+import type { ChannelMode } from '../../src/constants/channelModes'
 import { EFFECT_PRESETS, EFFECT_PRESET_MAP } from '../../src/effects/presets'
 import { effectsRunner } from '../../src/effects/runner'
 import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
@@ -21,7 +22,6 @@ export default function EditorScreen() {
   const params = useLocalSearchParams<{ ambianceId?: string }>()
   const ambiances = useAmbiancesStore((s) => s.ambiances)
   const setLightState = useAmbiancesStore((s) => s.setLightState)
-  const getLightState = useAmbiancesStore((s) => s.getLightState)
   const renameAmbiance = useAmbiancesStore((s) => s.renameAmbiance)
   const addEffect = useAmbiancesStore((s) => s.addEffect)
   const updateEffect = useAmbiancesStore((s) => s.updateEffect)
@@ -36,6 +36,7 @@ export default function EditorScreen() {
     pickBestLight(initialAmbianceId, ambiances, lights),
   )
   const [allLights, setAllLights] = useState(false)
+  const [colorMode, setColorMode] = useState<'wheel' | 'sliders'>('wheel')
   const [renameDialog, setRenameDialog] = useState(false)
   const [renameInput, setRenameInput] = useState('')
 
@@ -62,11 +63,18 @@ export default function EditorScreen() {
   }, [lights])
 
   const editingAmbiance = ambiances.find((a) => a.id === editingId)
-  const activeState = editingId && selectedLightId
-    ? getLightState(editingId, selectedLightId)
-    : defaultLightState()
+  // Read directly from editingAmbiance.lightStates so the component reacts
+  // purely to the `ambiances` subscription — no secondary getLightState call.
+  const activeState = editingAmbiance?.lightStates[selectedLightId] ?? defaultLightState()
 
-  const { r, g, b, w, intensity, isOn } = activeState
+  const { r, g, b, w, a, uv, intensity, isOn } = activeState
+
+  const AMBER_MODES: ChannelMode[] = ['RGBA', 'RGBWA', 'DIM_RGBA', 'DIM_RGBWA', 'RGBWAUV', 'DIM_RGBWAUV']
+  const UV_MODES: ChannelMode[] = ['RGBWAUV', 'DIM_RGBWAUV']
+  const selectedLight = lights.find((l) => l.id === selectedLightId)
+  // Amber slider always visible — for non-amber fixtures it's converted to RGB in DMXService
+  const hasNativeAmber = !allLights && AMBER_MODES.includes(selectedLight?.channelMode as ChannelMode)
+  const showUVSlider = allLights || UV_MODES.includes(selectedLight?.channelMode as ChannelMode)
 
   function applyPatch(patch: Partial<typeof activeState>) {
     if (allLights) {
@@ -162,7 +170,7 @@ export default function EditorScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lightTileRow}>
           {lights.map((light) => {
-            const state = getLightState(editingId, light.id)
+            const state = editingAmbiance?.lightStates[light.id] ?? defaultLightState()
             const tileColor = getStateColor(state)
             const isSelected = light.id === selectedLightId && !allLights
             return (
@@ -191,27 +199,78 @@ export default function EditorScreen() {
           </View>
         )}
 
-        {/* ── Quick colors ── */}
-        <Text style={styles.sectionLabel2}>QUICK COLORS</Text>
-        <SimpleColorPicker
-          onSelectColor={(nr, ng, nb, nw) => applyPatch({ r: nr, g: ng, b: nb, w: nw, isOn: true })}
-          selectedHex={undefined}
-        />
+        {/* ── Color mode toggle ── */}
+        <View style={styles.modeToggleRow}>
+          <Pressable
+            style={[styles.modeTab, colorMode === 'wheel' && styles.modeTabActive]}
+            onPress={() => setColorMode('wheel')}>
+            <MaterialIcons name="colorize" size={15} color={colorMode === 'wheel' ? '#fff' : '#666'} />
+            <Text style={[styles.modeTabLabel, colorMode === 'wheel' && styles.modeTabLabelActive]}>Wheel</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeTab, colorMode === 'sliders' && styles.modeTabActive]}
+            onPress={() => setColorMode('sliders')}>
+            <MaterialIcons name="tune" size={15} color={colorMode === 'sliders' ? '#fff' : '#666'} />
+            <Text style={[styles.modeTabLabel, colorMode === 'sliders' && styles.modeTabLabelActive]}>Sliders</Text>
+          </Pressable>
+        </View>
 
-        <Divider style={styles.divider} />
+        {colorMode === 'wheel' ? (
+          <>
+            {/* ── Quick colors ── */}
+            <Text style={styles.sectionLabel2}>QUICK COLORS</Text>
+            <SimpleColorPicker
+              onSelectColor={(nr, ng, nb, nw, na, nuv) => applyPatch({ r: nr, g: ng, b: nb, w: nw, a: na, uv: nuv, isOn: true })}
+              selectedHex={undefined}
+            />
+            <Divider style={styles.divider} />
 
-        {/* ── Color wheel ── */}
-        <Text style={styles.sectionLabel2}>COLOR WHEEL</Text>
-        <WheelColorPicker currentHex={currentHex}
-          onColorChange={(nr, ng, nb) => applyPatch({ r: nr, g: ng, b: nb, isOn: true })} />
-        <IntensitySlider value={(w / 255) * 100}
-          onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })} label="White Channel" />
+            {/* ── Chromatic wheel ── */}
+            <Text style={styles.sectionLabel2}>COLOR WHEEL</Text>
+            <WheelColorPicker currentHex={currentHex}
+              onColorChange={(nr, ng, nb) => applyPatch({ r: nr, g: ng, b: nb, isOn: true })} />
 
-        <Divider style={styles.divider} />
-
-        {/* ── Intensity ── */}
-        <Text style={styles.sectionLabel2}>INTENSITY</Text>
-        <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
+            <IntensitySlider value={(w / 255) * 100}
+              onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })} label="Dimmer (W)" />
+            <IntensitySlider value={(a / 255) * 100}
+              onChange={(v) => applyPatch({ a: Math.round(v * 2.55) })}
+              label={hasNativeAmber ? 'Amber' : 'Amber →RGB'} />
+            {showUVSlider && (
+              <IntensitySlider value={(uv / 255) * 100}
+                onChange={(v) => applyPatch({ uv: Math.round(v * 2.55) })} label="UV" />
+            )}
+            <Divider style={styles.divider} />
+            <Text style={styles.sectionLabel2}>INTENSITY</Text>
+            <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
+          </>
+        ) : (
+          <>
+            {/* ── Sliders mode ── */}
+            <ColorPreview r={r} g={g} b={b} w={w} amber={a} uv={uv} intensity={intensity} />
+            <View style={styles.sliderSection}>
+              <ColorSlider label="Red"         value={r}  max={255} color="#ff3333"
+                onChange={(v) => applyPatch({ r: v, isOn: true })} />
+              <ColorSlider label="Green"       value={g}  max={255} color="#33cc44"
+                onChange={(v) => applyPatch({ g: v, isOn: true })} />
+              <ColorSlider label="Blue"        value={b}  max={255} color="#3366ff"
+                onChange={(v) => applyPatch({ b: v, isOn: true })} />
+              <ColorSlider label="Dimmer (W)"  value={w}  max={255} color="#e8c97a"
+                onChange={(v) => applyPatch({ w: v })} />
+              <ColorSlider
+                label="Amber"
+                hint={hasNativeAmber ? undefined : '→ RGB mix'}
+                value={a} max={255} color="#ff8c00"
+                onChange={(v) => applyPatch({ a: v })} />
+              {showUVSlider && (
+                <ColorSlider label="UV" value={uv} max={255} color="#9944ff"
+                  onChange={(v) => applyPatch({ uv: v })} />
+              )}
+            </View>
+            <Divider style={styles.divider} />
+            <Text style={styles.sectionLabel2}>INTENSITY</Text>
+            <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
+          </>
+        )}
 
         <Divider style={styles.divider} />
 
@@ -428,7 +487,7 @@ export default function EditorScreen() {
                             const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
                             return (
                               <Pressable key={`from-${c.hex}`}
-                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 } })}
                                 style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                             )
                           })}
@@ -439,7 +498,7 @@ export default function EditorScreen() {
                             const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
                             return (
                               <Pressable key={`to-${c.hex}`}
-                                onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                onPress={() => setEditingEffect({ ...editingEffect, toColor: { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 } })}
                                 style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                             )
                           })}
@@ -459,7 +518,7 @@ export default function EditorScreen() {
                             const sel = ca && ca.r === c.r && ca.g === c.g && ca.b === c.b
                             return (
                               <Pressable key={`ca-${c.hex}`}
-                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 } })}
                                 style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                             )
                           })}
@@ -470,7 +529,7 @@ export default function EditorScreen() {
                             const sel = cb && cb.r === c.r && cb.g === c.g && cb.b === c.b
                             return (
                               <Pressable key={`cb-${c.hex}`}
-                                onPress={() => setEditingEffect({ ...editingEffect, colorB: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                                onPress={() => setEditingEffect({ ...editingEffect, colorB: { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 } })}
                                 style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                             )
                           })}
@@ -489,7 +548,7 @@ export default function EditorScreen() {
                           const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
                           return (
                             <Pressable key={`fc-${c.hex}`}
-                              onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w } })}
+                              onPress={() => setEditingEffect({ ...editingEffect, fromColor: { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 } })}
                               style={[styles.colorSwatch, { backgroundColor: c.hex }, sel && styles.colorSwatchSel]} />
                           )
                         })}
@@ -521,6 +580,65 @@ export default function EditorScreen() {
   )
 }
 
+function ColorSlider({
+  label, hint, value, max, color, onChange,
+}: {
+  label: string; hint?: string; value: number; max: number; color: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <View style={styles.colorSliderRow}>
+      <View style={styles.colorSliderHeader}>
+        <View style={styles.colorSliderLabelRow}>
+          <Text style={styles.colorSliderLabel}>{label}</Text>
+          {hint && <Text style={styles.colorSliderHint}>{hint}</Text>}
+        </View>
+        <Text style={styles.colorSliderValue}>{value}</Text>
+      </View>
+      <Slider
+        value={value}
+        onValueChange={(v) => onChange(Math.round(v))}
+        minimumValue={0}
+        maximumValue={max}
+        step={1}
+        minimumTrackTintColor={color}
+        maximumTrackTintColor="#222"
+        thumbTintColor={color}
+        style={{ height: 36 }}
+      />
+    </View>
+  )
+}
+
+function ColorPreview({
+  r, g, b, w, amber, uv, intensity,
+}: { r: number; g: number; b: number; w: number; amber: number; uv: number; intensity: number }) {
+  const ratio = intensity / 100
+  // Same warm-tint formula as getStateColor
+  const dr = Math.min(255, Math.round((r + w       + amber       + uv * 0.7) * ratio))
+  const dg = Math.min(255, Math.round((g + w * 0.87 + amber * 0.75          ) * ratio))
+  const db = Math.min(255, Math.round((b + w * 0.63              + uv       ) * ratio))
+  const bg = dr === 0 && dg === 0 && db === 0 ? '#1c1c1c' : `rgb(${dr},${dg},${db})`
+  // Separate warm overlay alpha — shows white/amber contribution even when RGB is low
+  const warmRaw = Math.round((w + amber) * ratio)
+  const warmAlpha = Math.min(0.6, warmRaw / 255)
+  return (
+    <View style={styles.colorPreviewWrap}>
+      <View style={[styles.colorPreviewBase, { backgroundColor: bg }]}>
+        {warmAlpha > 0.02 && (
+          <View style={[
+            styles.colorPreviewWarmOverlay,
+            { backgroundColor: `rgba(255, 180, 80, ${warmAlpha.toFixed(2)})` },
+          ]} />
+        )}
+      </View>
+      <Text style={styles.colorPreviewLabel}>
+        rgb({dr}, {dg}, {db})
+      </Text>
+    </View>
+  )
+}
+
 function pickBestLight(
   ambianceId: string,
   ambiances: { id: string; lightStates: Record<string, { isOn?: boolean; r?: number; g?: number; b?: number; w?: number }> }[],
@@ -545,9 +663,19 @@ function pickBestLight(
 function getStateColor(state: ReturnType<typeof defaultLightState>): string {
   if (!state.isOn) return '#1c1c1c'
   const ratio = state.intensity / 100
-  const r = Math.min(255, Math.round((state.r + state.w) * ratio))
-  const g = Math.min(255, Math.round((state.g + state.w) * ratio))
-  const b = Math.min(255, Math.round((state.b + state.w) * ratio))
+  const w   = state.w  ?? 0
+  const amb = state.a  ?? 0
+  const uv  = state.uv ?? 0
+  // Step 1 — base tint (same as ColorPreview)
+  // Warm white: R:1.0  G:0.87  B:0.63 | Amber: R:1.0  G:0.75  B:0 | UV: R:0.7  G:0  B:1.0
+  const br = Math.min(255, Math.round((state.r + w        + amb        + uv * 0.7) * ratio))
+  const bg_ = Math.min(255, Math.round((state.g + w * 0.87 + amb * 0.75           ) * ratio))
+  const bb = Math.min(255, Math.round((state.b + w * 0.63              + uv       ) * ratio))
+  // Step 2 — warm overlay alpha-composite (rgba(255,180,80,α) over base) — mirrors ColorPreview
+  const warmAlpha = Math.min(0.6, ((w + amb) * ratio) / 255)
+  const r = Math.round(255 * warmAlpha + br  * (1 - warmAlpha))
+  const g = Math.round(180 * warmAlpha + bg_ * (1 - warmAlpha))
+  const b = Math.round(80  * warmAlpha + bb  * (1 - warmAlpha))
   if (r === 0 && g === 0 && b === 0) return '#1c1c1c'
   return `rgb(${r},${g},${b})`
 }
@@ -577,6 +705,32 @@ const styles = StyleSheet.create({
   onOffRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 4 },
   onOffToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   onOffLabel: { color: '#aaa', fontSize: 13 },
+  modeToggleRow: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginVertical: 10 },
+  modeTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, borderRadius: 10, backgroundColor: '#1a1a1a',
+    borderWidth: 1, borderColor: '#2a2a2a',
+  },
+  modeTabActive: { backgroundColor: '#ff6b35', borderColor: '#ff6b35' },
+  modeTabLabel: { fontSize: 13, fontWeight: '600', color: '#666' },
+  modeTabLabelActive: { color: '#fff' },
+  sliderSection: { paddingTop: 4 },
+  colorSliderRow: { marginHorizontal: 16, marginVertical: 4 },
+  colorSliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 },
+  colorSliderLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  colorSliderLabel: { fontSize: 12, color: '#aaa' },
+  colorSliderHint: { fontSize: 10, color: '#555', fontStyle: 'italic' },
+  colorSliderValue: { fontSize: 12, color: '#fff', fontWeight: '600' },
+
+  colorPreviewWrap: { marginHorizontal: 16, marginTop: 4, marginBottom: 8 },
+  colorPreviewBase: {
+    height: 52, borderRadius: 12, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#2a2a2a',
+  },
+  colorPreviewWarmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  colorPreviewLabel: { fontSize: 10, color: '#444', marginTop: 3, textAlign: 'center' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyText: { color: '#fff', fontSize: 16, marginBottom: 8 },
   emptyHint: { color: '#666', fontSize: 13, textAlign: 'center' },

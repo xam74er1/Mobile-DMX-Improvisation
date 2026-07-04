@@ -28,7 +28,7 @@ const SEED_FIXTURES: Fixture[] = DEFAULT_COLORS.slice(0, 4).map((c, i) => ({
   id: `fixture-${i + 1}`,
   name: c.label,
   dmxAddress: i * 3 + 1,
-  channelMode: 'RGB',
+  channelMode: 'RGBWAUV',
   categoryId: DEFAULT_CATEGORY_ID,
 }))
 

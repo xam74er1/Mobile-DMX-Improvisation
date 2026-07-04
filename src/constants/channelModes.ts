@@ -1,4 +1,7 @@
-export type ChannelMode = 'RGB' | 'RGBW' | 'DIM_RGB' | 'DIM_RGBW'
+export type ChannelMode =
+  | 'RGB' | 'RGBW' | 'DIM_RGB' | 'DIM_RGBW'
+  | 'RGBA' | 'RGBWA' | 'DIM_RGBA' | 'DIM_RGBWA'
+  | 'RGBWAUV' | 'DIM_RGBWAUV'
 
 export interface ChannelModeConfig {
   mode: ChannelMode
@@ -26,6 +29,36 @@ export const CHANNEL_MODE_CONFIGS: Record<ChannelMode, ChannelModeConfig> = {
     mode: 'DIM_RGBW',
     label: 'Dim + RGBW (5ch)',
     channelCount: 5,
+  },
+  RGBA: {
+    mode: 'RGBA',
+    label: 'RGBA (4ch)',
+    channelCount: 4,
+  },
+  RGBWA: {
+    mode: 'RGBWA',
+    label: 'RGBWA (5ch)',
+    channelCount: 5,
+  },
+  DIM_RGBA: {
+    mode: 'DIM_RGBA',
+    label: 'Dim + RGBA (5ch)',
+    channelCount: 5,
+  },
+  DIM_RGBWA: {
+    mode: 'DIM_RGBWA',
+    label: 'Dim + RGBWA (6ch)',
+    channelCount: 6,
+  },
+  RGBWAUV: {
+    mode: 'RGBWAUV',
+    label: 'RGBWA+UV (6ch)',
+    channelCount: 6,
+  },
+  DIM_RGBWAUV: {
+    mode: 'DIM_RGBWAUV',
+    label: 'Dim + RGBWA+UV (8ch)',
+    channelCount: 8,
   },
 }
 

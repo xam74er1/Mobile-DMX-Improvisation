@@ -8,6 +8,8 @@ export interface LightColor {
   g: number
   b: number
   w: number
+  a: number
+  uv: number
 }
 
 export interface Light {
@@ -32,12 +34,12 @@ const SPREAD_POS = [
   [0.17, 0.30], [0.50, 0.30], [0.83, 0.30],
 ]
 const DEFAULT_COLORS_CYCLE: LightColor[] = [
-  { r: 255, g: 255, b: 255, w: 0 },
-  { r: 255, g: 0,   b: 0,   w: 0 },
-  { r: 0,   g: 68,  b: 255, w: 0 },
-  { r: 0,   g: 200, b: 0,   w: 0 },
-  { r: 255, g: 120, b: 0,   w: 0 },
-  { r: 200, g: 0,   b: 200, w: 0 },
+  { r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0 },
+  { r: 255, g: 0,   b: 0,   w: 0, a: 0, uv: 0 },
+  { r: 0,   g: 68,  b: 255, w: 0, a: 0, uv: 0 },
+  { r: 0,   g: 200, b: 0,   w: 0, a: 0, uv: 0 },
+  { r: 255, g: 120, b: 0,   w: 0, a: 0, uv: 0 },
+  { r: 200, g: 0,   b: 200, w: 0, a: 0, uv: 0 },
 ]
 
 const DEFAULT_LIGHTS: Light[] = [
@@ -45,12 +47,12 @@ const DEFAULT_LIGHTS: Light[] = [
     id: 'light-1',
     name: 'Light 1',
     dmxAddress: 1,
-    channelMode: 'RGB',
+    channelMode: 'RGBWAUV',
     sceneX: 0.5,
     sceneY: 0.30,
     rotation: 0,
     beamWidth: 1.0,
-    defaultColor: { r: 255, g: 255, b: 255, w: 0 },
+    defaultColor: { r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0 },
   },
 ]
 
@@ -109,16 +111,16 @@ export const useLightsStore = create<LightsState>()(
     {
       name: 'dmx-lights',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 2,
+      version: 4,
       migrate: (state: any) => ({
         ...state,
         lights: (state.lights ?? []).map((l: any) => ({
-          defaultColor: { r: 255, g: 255, b: 255, w: 0 },
           sceneX: 0.5,
           sceneY: 0.3,
           rotation: 0,
           beamWidth: 1.0,
           ...l,
+          defaultColor: { a: 0, uv: 0, ...(l.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }) },
         })),
       }),
     },

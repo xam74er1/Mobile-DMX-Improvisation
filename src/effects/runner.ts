@@ -48,7 +48,7 @@ interface Slot {
 }
 
 type FrameOutput = {
-  r: number; g: number; b: number; w: number
+  r: number; g: number; b: number; w: number; a: number; uv: number
   intensity: number; isOn: boolean
   intensityOnly?: boolean
 }
@@ -183,11 +183,11 @@ class EffectsRunner {
   private computeFrame(slot: Slot): FrameOutput | null {
     const { config, frame, repeat } = slot
     const { kind, periodFrames, flashFrames, totalFrames, color, colorB, maxIntensity, toColor, intensityOnly } = config
-    const OFF: FrameOutput = { r: 0, g: 0, b: 0, w: 0, intensity: 0, isOn: false, intensityOnly }
+    const OFF: FrameOutput = { r: 0, g: 0, b: 0, w: 0, a: 0, uv: 0, intensity: 0, isOn: false, intensityOnly }
 
     switch (kind) {
       case 'flash': {
-        if (frame <= flashFrames) return { ...color, intensity: maxIntensity, isOn: true, intensityOnly }
+        if (frame <= flashFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         if (!repeat) { slot.repeat = false; return null }
         return OFF
       }
@@ -195,7 +195,7 @@ class EffectsRunner {
       case 'strobe':
       case 'beat': {
         const phase = frame % periodFrames
-        if (phase < flashFrames) return { ...color, intensity: maxIntensity, isOn: true, intensityOnly }
+        if (phase < flashFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         return OFF
       }
 
@@ -203,8 +203,22 @@ class EffectsRunner {
         const phase = frame % periodFrames
         const beat2 = Math.round(periodFrames * 0.35)
         const beat2End = beat2 + Math.round(flashFrames * 0.7)
-        if (phase < flashFrames) return { ...color, intensity: maxIntensity, isOn: true, intensityOnly }
-        if (phase >= beat2 && phase < beat2End) return { ...color, intensity: Math.round(maxIntensity * 0.65), isOn: true, intensityOnly }
+        if (phase < flashFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
+        if (phase >= beat2 && phase < beat2End) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: Math.round(maxIntensity * 0.65), isOn: true, intensityOnly }
+        return OFF
+      }
+
+      case 'clap': {
+        // 3 rapid bursts in the first 40% of the period, then darkness
+        const phase = frame % periodFrames
+        const burstZone = Math.round(periodFrames * 0.4)
+        const spacing = Math.round(burstZone / 3)
+        for (let i = 0; i < 3; i++) {
+          const start = i * spacing
+          if (phase >= start && phase < start + flashFrames) {
+            return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
+          }
+        }
         return OFF
       }
 
@@ -213,7 +227,7 @@ class EffectsRunner {
         const phase = frame % periodFrames
         const half = Math.round(periodFrames / 2)
         const col = phase < half ? color : (colorB ?? color)
-        return { ...col, intensity: maxIntensity, isOn: true, intensityOnly }
+        return { r: col.r, g: col.g, b: col.b, w: col.w, a: col.a ?? 0, uv: col.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
       }
 
       case 'ramp_up': {
@@ -223,7 +237,7 @@ class EffectsRunner {
           slot.frame = 0
           return OFF
         }
-        return { ...color, intensity: t * maxIntensity, isOn: true, intensityOnly }
+        return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: t * maxIntensity, isOn: true, intensityOnly }
       }
 
       case 'ramp_down': {
@@ -231,23 +245,23 @@ class EffectsRunner {
         if (frame > totalFrames) {
           if (!repeat) return null
           slot.frame = 0
-          return { ...color, intensity: maxIntensity, isOn: true, intensityOnly }
+          return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         }
-        return { ...color, intensity: t * maxIntensity, isOn: t > 0, intensityOnly }
+        return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: t * maxIntensity, isOn: t > 0, intensityOnly }
       }
 
       case 'breathe': {
         const phase = frame % periodFrames
         const t = phase / periodFrames
         const intensity = Math.sin(Math.PI * t) * maxIntensity
-        return { ...color, intensity: Math.max(0, intensity), isOn: intensity > 0, intensityOnly }
+        return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: Math.max(0, intensity), isOn: intensity > 0, intensityOnly }
       }
 
       case 'color_transition': {
         if (frame > totalFrames) {
           if (!repeat) return null
           slot.frame = 0
-          return { ...color, intensity: maxIntensity, isOn: true, intensityOnly }
+          return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         }
         const t = frame / totalFrames
         const to = toColor ?? color
@@ -256,6 +270,8 @@ class EffectsRunner {
           g: Math.round(color.g + (to.g - color.g) * t),
           b: Math.round(color.b + (to.b - color.b) * t),
           w: Math.round((color.w ?? 0) + ((to.w ?? 0) - (color.w ?? 0)) * t),
+          a: Math.round((color.a ?? 0) + ((to.a ?? 0) - (color.a ?? 0)) * t),
+          uv: Math.round((color.uv ?? 0) + ((to.uv ?? 0) - (color.uv ?? 0)) * t),
           intensity: maxIntensity,
           isOn: true,
           intensityOnly,
@@ -287,8 +303,8 @@ class EffectsRunner {
           // only apply the effect's intensity and isOn state.
           const base = active?.lightStates[l.id]
           const baseColor = base
-            ? { r: base.r, g: base.g, b: base.b, w: base.w }
-            : (l.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 })
+            ? { r: base.r, g: base.g, b: base.b, w: base.w, a: base.a ?? 0, uv: base.uv ?? 0 }
+            : { r: l.defaultColor?.r ?? 255, g: l.defaultColor?.g ?? 255, b: l.defaultColor?.b ?? 255, w: l.defaultColor?.w ?? 0, a: l.defaultColor?.a ?? 0, uv: l.defaultColor?.uv ?? 0 }
           scene[l.id] = { ...baseColor, intensity: override.intensity, isOn: override.isOn }
         } else {
           scene[l.id] = override
