@@ -1,7 +1,7 @@
 import React from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Text } from 'react-native-paper'
-import Slider from '@react-native-community/slider'
+import Slider from './AppSlider'
 
 interface Props {
   value: number  // 0–100

@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS } from 'react-native-reanimated'
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
-import Slider from '@react-native-community/slider'
+import Slider from './AppSlider'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SIZE = 220          // wheel canvas size (px)
