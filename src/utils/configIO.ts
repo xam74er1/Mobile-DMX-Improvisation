@@ -92,6 +92,9 @@ function channelLayout(mode: ChannelMode): {
     case 'RGBWAUV':      return { r: 0, g: 1, b: 2, w: 3, a: 4, uv: 5 }
     // offset 1 is the strobe channel (DMXService always writes 0/open there)
     case 'DIM_RGBWAUV':  return { dim: 0, r: 2, g: 3, b: 4, w: 5, a: 6, uv: 7 }
+    // 16-bit dimmer: offset 0 coarse / offset 1 fine (fine unused). Offset 2 is
+    // strobe, offsets 9-10 are macro program/speed (both left at 0/off).
+    case 'DIM16_RGBWAUV': return { dim: 0, r: 3, g: 4, b: 5, w: 6, a: 7, uv: 8 }
     default:             return { r: 0, g: 1, b: 2 }
   }
 }

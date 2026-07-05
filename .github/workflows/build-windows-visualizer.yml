@@ -1,0 +1,66 @@
+name: Build Windows Visualizer
+
+# Fires when a version tag is pushed, e.g. `git tag v1.2.0 && git push origin v1.2.0`.
+# Bundles the desktop DMX visualizer (Python server + built frontend) into a
+# single dmx-visualizer.exe and attaches it to the GitHub Release for the tag,
+# so testers can download and run it with no Python/Node install required.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dmx-visualizer/frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: dmx-visualizer/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build server exe
+        working-directory: dmx-visualizer/server
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+          pyinstaller --onefile --name dmx-visualizer --add-data "../frontend/dist;frontend/dist" server.py
+
+      - name: Rename exe with version
+        id: exe
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p out
+          cp dmx-visualizer/server/dist/dmx-visualizer.exe "out/dmx-visualizer-${VERSION}.exe"
+          echo "path=out/dmx-visualizer-${VERSION}.exe" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmx-visualizer-exe
+          path: ${{ steps.exe.outputs.path }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.exe.outputs.path }}
+          generate_release_notes: true

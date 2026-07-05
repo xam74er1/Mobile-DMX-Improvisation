@@ -2,6 +2,11 @@
 title DMX Improvisator - Android Build
 cd /d "%~dp0"
 
+if exist "C:\Program Files\Java\jdk-17\bin\java.exe" (
+    set "JAVA_HOME=C:\Program Files\Java\jdk-17"
+    set "PATH=C:\Program Files\Java\jdk-17\bin;%PATH%"
+)
+
 echo.
 echo  ============================================
 echo   Mobile DMX Improvisator - Android Build

@@ -42,7 +42,7 @@ export default function SettingsScreen() {
   const [tab, setTab] = useState<Tab>('connection')
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.tabBar}>
         <SegmentedButtons
           value={tab}

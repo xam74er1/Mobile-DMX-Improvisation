@@ -42,19 +42,19 @@ const DEFAULT_COLORS_CYCLE: LightColor[] = [
   { r: 200, g: 0,   b: 200, w: 0, a: 0, uv: 0 },
 ]
 
-const DEFAULT_LIGHTS: Light[] = [
-  {
-    id: 'light-1',
-    name: 'Light 1',
-    dmxAddress: 1,
-    channelMode: 'RGBWAUV',
-    sceneX: 0.5,
-    sceneY: 0.30,
-    rotation: 0,
-    beamWidth: 1.0,
-    defaultColor: { r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0 },
-  },
-]
+// 4 fixtures, 11ch mode each (16-bit dim + strobe + RGBWA+UV), 11 channels apart:
+// addresses 1, 12, 23, 34 — matches the Cameo ROOT PAR 6 11ch DMX chart.
+const DEFAULT_LIGHTS: Light[] = [0.2, 0.4, 0.6, 0.8].map((sceneX, i) => ({
+  id: `light-${i + 1}`,
+  name: `Light ${i + 1}`,
+  dmxAddress: i * 11 + 1,
+  channelMode: 'DIM16_RGBWAUV',
+  sceneX,
+  sceneY: 0.30,
+  rotation: 0,
+  beamWidth: 1.0,
+  defaultColor: DEFAULT_COLORS_CYCLE[i],
+}))
 
 interface LightsState {
   lights: Light[]
@@ -111,18 +111,21 @@ export const useLightsStore = create<LightsState>()(
     {
       name: 'dmx-lights',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 4,
-      migrate: (state: any) => ({
-        ...state,
-        lights: (state.lights ?? []).map((l: any) => ({
+      version: 5,
+      migrate: (state: any, fromVersion: number) => {
+        const migratedLights = (state.lights ?? []).map((l: any) => ({
           sceneX: 0.5,
           sceneY: 0.3,
           rotation: 0,
           beamWidth: 1.0,
           ...l,
           defaultColor: { a: 0, uv: 0, ...(l.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }) },
-        })),
-      }),
+        }))
+        // Anyone still on the old single-fixture seed gets bumped to the new
+        // 4x 11ch default; an already-customized rig (4+ lights) is left alone.
+        const lights = fromVersion < 5 && migratedLights.length < 4 ? DEFAULT_LIGHTS : migratedLights
+        return { ...state, lights }
+      },
     },
   ),
 )

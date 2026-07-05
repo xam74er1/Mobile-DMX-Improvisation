@@ -136,6 +136,21 @@ export class DMXService {
         this.universe[addr + 6] = a
         this.universe[addr + 7] = uv
         break
+      // CAMEO ROOT PAR 6: 11CH mode — Dim(16-bit coarse/fine),Strobe(0=open),
+      // R,G,B,W,A,UV,Macro(off),MacroSpeed(off)
+      case 'DIM16_RGBWAUV':
+        this.universe[addr]     = dim  // dimmer coarse (MSB)
+        this.universe[addr + 1] = 0    // dimmer fine (LSB) — 8-bit precision is enough here
+        this.universe[addr + 2] = 0    // strobe off (open)
+        this.universe[addr + 3] = r
+        this.universe[addr + 4] = g
+        this.universe[addr + 5] = b
+        this.universe[addr + 6] = w
+        this.universe[addr + 7] = a
+        this.universe[addr + 8] = uv
+        this.universe[addr + 9]  = 0   // macro program off
+        this.universe[addr + 10] = 0   // macro speed
+        break
     }
   }
 

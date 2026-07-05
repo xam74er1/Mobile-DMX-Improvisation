@@ -27,8 +27,8 @@ function makeId() {
 const SEED_FIXTURES: Fixture[] = DEFAULT_COLORS.slice(0, 4).map((c, i) => ({
   id: `fixture-${i + 1}`,
   name: c.label,
-  dmxAddress: i * 3 + 1,
-  channelMode: 'RGBWAUV',
+  dmxAddress: i * 11 + 1,
+  channelMode: 'DIM16_RGBWAUV',
   categoryId: DEFAULT_CATEGORY_ID,
 }))
 

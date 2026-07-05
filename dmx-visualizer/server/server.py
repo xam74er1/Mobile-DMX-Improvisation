@@ -1,5 +1,11 @@
 import asyncio
 import json
+import os
+import sys
+import threading
+import webbrowser
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
 import websockets
 
 class DMXServer:
@@ -101,6 +107,24 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
             asyncio.create_task(self.dmx_server.broadcast_dmx())
 
 
+def serve_frontend(port=5173):
+    # Only used in the packaged .exe, which bundles the built frontend
+    # alongside the interpreter (see the PyInstaller --add-data step in CI).
+    # The normal dev workflow (start-visualizer.bat) runs Vite separately.
+    dist_dir = os.path.join(sys._MEIPASS, "frontend", "dist")
+
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=dist_dir, **kwargs)
+
+        def log_message(self, format, *args):
+            pass
+
+    httpd = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    print(f"Web UI on                     http://localhost:{port}")
+
+
 async def main():
     dmx_server = DMXServer()
 
@@ -126,6 +150,11 @@ async def main():
         print(f"Failed to bind sACN port: {e}")
 
     print("WebSocket server on           ws://0.0.0.0:8080")
+
+    if getattr(sys, "frozen", False):
+        serve_frontend()
+        webbrowser.open("http://localhost:5173")
+
     print("-" * 48)
     await ws_server
     await asyncio.Future()

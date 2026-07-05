@@ -2,6 +2,14 @@
 
 This is a standalone visualizer designed to run on your computer to test the Mobile DMX Improvisator app. It features a Python backend that receives raw DMX packets via UDP and a React frontend with both 2D and 3D visualizers.
 
+## Windows executable (no install needed)
+
+Every tagged release (`vX.Y.Z`) builds `dmx-visualizer-X.Y.Z.exe` via GitHub
+Actions (`.github/workflows/build-windows-visualizer.yml`) and attaches it to
+the GitHub Release for that tag. It bundles the Python server and the built
+frontend — double-click it and it opens `http://localhost:5173` in your
+browser automatically. No Python or Node required on the tester's machine.
+
 ## Prerequisites
 
 - **Python 3** (must be installed and added to your PATH)

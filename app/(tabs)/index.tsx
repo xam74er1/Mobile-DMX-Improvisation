@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import type { SharedValue } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { BlackoutButton } from '../../src/components/BlackoutButton'
 import { AmbianceCard } from '../../src/components/AmbianceCard'
 import { EffectsBar } from '../../src/components/EffectsBar'
@@ -50,6 +51,7 @@ const ROW_H = 56
 // ─────────────────────────────────────────────────────────────
 export default function ControlScreen() {
   const router = useRouter()
+  const tabBarHeight = useBottomTabBarHeight()
   const ambiances           = useAmbiancesStore((s) => s.ambiances)
   const categories          = useAmbiancesStore((s) => s.categories)
   const activeAmbianceId    = useAmbiancesStore((s) => s.activeAmbianceId)
@@ -127,7 +129,7 @@ export default function ControlScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <BlackoutButton />
 
@@ -205,7 +207,7 @@ export default function ControlScreen() {
       <Portal>
         <FAB
           icon="plus"
-          style={styles.fab}
+          style={[styles.fab, { bottom: tabBarHeight + 16 }]}
           color="#ffffff"
           onPress={() => setFabMenuVisible(true)}
         />
@@ -692,7 +694,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2a2a2a',
   },
   fadeBtnLabel: { fontSize: 13, fontWeight: '600', color: '#ff6b35' },
-  fab:            { position: 'absolute', bottom: 24, right: 20, backgroundColor: '#ff6b35' },
+  fab:            { position: 'absolute', right: 20, backgroundColor: '#ff6b35' },
   menuOptions:    { gap: 4 },
   pickerLabel:    { fontSize: 12, color: '#888', marginBottom: 6 },
   catChips:       { flexDirection: 'row' },

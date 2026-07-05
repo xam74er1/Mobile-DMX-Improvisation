@@ -69,8 +69,8 @@ export default function EditorScreen() {
 
   const { r, g, b, w, a, uv, intensity, isOn } = activeState
 
-  const AMBER_MODES: ChannelMode[] = ['RGBA', 'RGBWA', 'DIM_RGBA', 'DIM_RGBWA', 'RGBWAUV', 'DIM_RGBWAUV']
-  const UV_MODES: ChannelMode[] = ['RGBWAUV', 'DIM_RGBWAUV']
+  const AMBER_MODES: ChannelMode[] = ['RGBA', 'RGBWA', 'DIM_RGBA', 'DIM_RGBWA', 'RGBWAUV', 'DIM_RGBWAUV', 'DIM16_RGBWAUV']
+  const UV_MODES: ChannelMode[] = ['RGBWAUV', 'DIM_RGBWAUV', 'DIM16_RGBWAUV']
   const selectedLight = lights.find((l) => l.id === selectedLightId)
   // Amber slider always visible — for non-amber fixtures it's converted to RGB in DMXService
   const hasNativeAmber = !allLights && AMBER_MODES.includes(selectedLight?.channelMode as ChannelMode)
@@ -129,7 +129,7 @@ export default function EditorScreen() {
 
   if (ambiances.length === 0) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No ambiances yet.</Text>
           <Text style={styles.emptyHint}>Go to the Control tab and tap + to create one.</Text>
@@ -139,7 +139,7 @@ export default function EditorScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* ── Ambiance selector ── */}
