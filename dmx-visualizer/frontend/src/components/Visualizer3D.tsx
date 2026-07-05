@@ -1,11 +1,11 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, TransformControls, SpotLight } from '@react-three/drei';
 import * as THREE from 'three';
 import { useDMXStore } from '../store/useDMXStore';
 import { parseDMX } from '../utils/dmxParse';
 
-const Actor3D = ({ actor, isSelected, onClick }: { actor: any, isSelected: boolean, onClick: () => void }) => {
+const Actor3D = ({ actor, onClick }: { actor: any, isSelected: boolean, onClick: () => void }) => {
   return (
     <group 
       position={[actor.x, actor.z, actor.y]}
@@ -28,12 +28,11 @@ const Actor3D = ({ actor, isSelected, onClick }: { actor: any, isSelected: boole
   );
 };
 
-const Fixture3D = ({ fixture, isSelected, onClick }: { fixture: any, isSelected: boolean, onClick: () => void }) => {
+const Fixture3D = ({ fixture, onClick }: { fixture: any, isSelected: boolean, onClick: () => void }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
-  const { updateFixturePosition, updateFixtureRotation } = useDMXStore();
-  
+
   // DMX updating frame loop
   useFrame(() => {
     if (meshRef.current) {
@@ -202,7 +201,7 @@ export const Visualizer3D: React.FC = () => {
             mode={isActorSelected ? 'translate' : transformMode}
             position={[transformTarget.x, transformTarget.z || 0, transformTarget.y]}
             rotation={isActorSelected ? [0,0,0] : [(transformTarget as any).rotX || 0, (transformTarget as any).rotY || 0, (transformTarget as any).rotZ || 0]}
-            onObjectChange={(e) => {
+            onObjectChange={(e: any) => {
               if (e?.target?.object) {
                 const { position, rotation } = e.target.object;
                 if (isActorSelected) {

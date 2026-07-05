@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { DMXProvider } from './components/DMXProvider';
 import { Visualizer2D } from './components/Visualizer2D';
 import { Visualizer3D } from './components/Visualizer3D';
