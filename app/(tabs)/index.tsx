@@ -12,10 +12,13 @@ import type { SharedValue } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { BlackoutButton } from '../../src/components/BlackoutButton'
+import { ConnectionStatusDot } from '../../src/components/ConnectionStatusDot'
 import { AmbianceCard } from '../../src/components/AmbianceCard'
 import { EffectsBar } from '../../src/components/EffectsBar'
 import { useAmbiancesStore } from '../../src/store/ambiancesStore'
 import type { AmbianceCategory } from '../../src/store/ambiancesStore'
+import { useSettingsStore } from '../../src/store/settingsStore'
+import Slider from '../../src/components/AppSlider'
 import { useRouter } from 'expo-router'
 import { effectsRunner } from '../../src/effects/runner'
 
@@ -67,6 +70,27 @@ export default function ControlScreen() {
   const removeCategory      = useAmbiancesStore((s) => s.removeCategory)
   const renameCategory      = useAmbiancesStore((s) => s.renameCategory)
   const reorderCategories   = useAmbiancesStore((s) => s.reorderCategories)
+  const resendCurrent       = useAmbiancesStore((s) => s.resendCurrent)
+  const setBlackout         = useAmbiancesStore((s) => s.setBlackout)
+
+  const masterIntensity    = useSettingsStore((s) => s.masterIntensity)
+  const setMasterIntensity = useSettingsStore((s) => s.setMasterIntensity)
+  const fadeDurationMs     = useSettingsStore((s) => s.fadeDurationMs)
+  const setFadeDurationMs  = useSettingsStore((s) => s.setFadeDurationMs)
+
+  // ── Fade button running state (polled — effectsRunner isn't a store) ──
+  const [fadeInActive, setFadeInActive] = useState(false)
+  const [fadeOutActive, setFadeOutActive] = useState(false)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFadeInActive(effectsRunner.isSlotRunning('fade-in-manual'))
+      setFadeOutActive(effectsRunner.isSlotRunning('fade-out-manual'))
+    }, 150)
+    return () => clearInterval(id)
+  }, [])
+
+  // ── Fade duration picker (long-press either fade button) ──
+  const [durationDialog, setDurationDialog] = useState(false)
 
   // ── Create ambiance ────────────────────────────────────────
   const [newDialog,    setNewDialog]    = useState(false)
@@ -132,25 +156,71 @@ export default function ControlScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <BlackoutButton />
+        <ConnectionStatusDot />
 
         {/* ── Fade controls ── */}
         <View style={styles.fadeRow}>
-          <Pressable style={styles.fadeBtn}
-            onPress={() => effectsRunner.startSlot({
-              id: 'fade-in-manual', presetId: 'ramp_up',
-              targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 3000, maxIntensity: 100,
-            })}>
-            <MaterialIcons name="trending-up" size={18} color="#ff6b35" />
-            <Text style={styles.fadeBtnLabel}>Fade In</Text>
+          <Pressable
+            style={[styles.fadeBtn, fadeInActive && styles.fadeBtnActive]}
+            onLongPress={() => setDurationDialog(true)}
+            onPress={() => {
+              // Cancel an opposite fade in progress so the two never race.
+              effectsRunner.stopSlot('fade-out-manual')
+              // Clear blackout silently (no immediate full-brightness send) so
+              // the ramp starts from black instead of flashing to 100%.
+              useAmbiancesStore.setState({ blackout: false })
+              effectsRunner.startSlot({
+                id: 'fade-in-manual', presetId: 'ramp_up',
+                targetLightIds: 'all', bpm: 20, repeat: false, durationMs: fadeDurationMs, maxIntensity: 100,
+              })
+            }}>
+            <MaterialIcons name="trending-up" size={18} color={fadeInActive ? '#fff' : '#ff6b35'} />
+            <Text style={[styles.fadeBtnLabel, fadeInActive && { color: '#fff' }]}>
+              {fadeInActive ? 'Fading In…' : 'Fade In'}
+            </Text>
           </Pressable>
-          <Pressable style={styles.fadeBtn}
-            onPress={() => effectsRunner.startSlot({
-              id: 'fade-out-manual', presetId: 'ramp_down',
-              targetLightIds: 'all', bpm: 20, repeat: false, durationMs: 3000, maxIntensity: 100,
-            })}>
-            <MaterialIcons name="trending-down" size={18} color="#aaa" />
-            <Text style={[styles.fadeBtnLabel, { color: '#aaa' }]}>Fade Out</Text>
+          <Pressable
+            style={[styles.fadeBtn, fadeOutActive && styles.fadeBtnActive]}
+            onLongPress={() => setDurationDialog(true)}
+            onPress={() => {
+              effectsRunner.stopSlot('fade-in-manual')
+              effectsRunner.startSlot({
+                id: 'fade-out-manual', presetId: 'ramp_down',
+                targetLightIds: 'all', bpm: 20, repeat: false, durationMs: fadeDurationMs, maxIntensity: 100,
+                // End of fade-out = real blackout: lights stay off and the main
+                // button switches to its black state.
+                onComplete: () => setBlackout(true),
+              })
+            }}>
+            <MaterialIcons name="trending-down" size={18} color={fadeOutActive ? '#fff' : '#aaa'} />
+            <Text style={[styles.fadeBtnLabel, { color: fadeOutActive ? '#fff' : '#aaa' }]}>
+              {fadeOutActive ? 'Fading Out…' : 'Fade Out'}
+            </Text>
           </Pressable>
+        </View>
+        <Text style={styles.fadeDurationHint}>Long-press either button to change fade duration ({(fadeDurationMs / 1000).toFixed(1)}s)</Text>
+
+        {/* ── Master intensity (global brightness cap) ── */}
+        <View style={styles.masterRow}>
+          <MaterialIcons name="brightness-6" size={16} color="#ff6b35" />
+          <Slider
+            style={styles.masterSlider}
+            value={masterIntensity}
+            onValueChange={(v: number) => {
+              setMasterIntensity(v)
+              // While an effect is running, its own 50ms tick already re-reads
+              // masterIntensity fresh — resending here would race it with a
+              // stale base-scene frame and cause a flicker.
+              if (effectsRunner.activeIds.length === 0) resendCurrent()
+            }}
+            minimumValue={5}
+            maximumValue={100}
+            step={1}
+            minimumTrackTintColor="#ff6b35"
+            maximumTrackTintColor="#333"
+            thumbTintColor="#ff6b35"
+          />
+          <Text style={styles.masterValue}>{masterIntensity}%</Text>
         </View>
 
         {/* ── Category sections ── */}
@@ -293,6 +363,31 @@ export default function ControlScreen() {
           <Dialog.Actions>
             <Button onPress={() => setNewDialog(false)}>Cancel</Button>
             <Button onPress={confirmCreate} disabled={!nameInput.trim()}>Create & Edit</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* ── Fade duration picker (long-press Fade In/Out) ── */}
+      <Portal>
+        <Dialog visible={durationDialog} onDismiss={() => setDurationDialog(false)}>
+          <Dialog.Title>Fade Duration</Dialog.Title>
+          <Dialog.Content>
+            <Text style={styles.pickerLabel}>{(fadeDurationMs / 1000).toFixed(1)}s</Text>
+            <Slider
+              value={fadeDurationMs}
+              onValueChange={setFadeDurationMs}
+              minimumValue={500}
+              maximumValue={10000}
+              step={250}
+              minimumTrackTintColor="#ff6b35"
+              maximumTrackTintColor="#333"
+              thumbTintColor="#ff6b35"
+              style={{ height: 36, marginTop: 4 }}
+            />
+            <Text style={styles.hint}>Applies to both Fade In and Fade Out.</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setDurationDialog(false)}>Done</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -694,6 +789,17 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2a2a2a',
   },
   fadeBtnLabel: { fontSize: 13, fontWeight: '600', color: '#ff6b35' },
+  fadeBtnActive: { backgroundColor: '#ff6b35', borderColor: '#ff6b35' },
+  fadeDurationHint: { fontSize: 10, color: '#444', marginHorizontal: 16, marginTop: -6, marginBottom: 10 },
+  hint: { color: '#555', fontSize: 12, marginTop: 6 },
+  masterRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: '#141414', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  masterSlider: { flex: 1, height: 32 },
+  masterValue: { fontSize: 12, fontWeight: '600', color: '#ff6b35', width: 40, textAlign: 'right' },
   fab:            { position: 'absolute', right: 20, backgroundColor: '#ff6b35' },
   menuOptions:    { gap: 4 },
   pickerLabel:    { fontSize: 12, color: '#888', marginBottom: 6 },
