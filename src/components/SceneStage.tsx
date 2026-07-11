@@ -200,8 +200,8 @@ function StageLightIcon({ r, g, b, w, intensity, isOn, rotation, beamWidth, widt
   const rotateStr = `rotate(${rotation ?? 0}, ${LENS_SVG_X}, ${LENS_SVG_Y})`
 
   return (
-    // overflow="visible" lets the rotated beam spill beyond the SVG box
-    <Svg width={width} height={height} viewBox="0 0 48 96" overflow="visible">
+    // overflow: visible lets the rotated beam spill beyond the SVG box
+    <Svg width={width} height={height} viewBox="0 0 48 96" style={{ overflow: 'visible' }}>
       <Defs>
         <RadialGradient id={`bg${dr}${dg}${db}`} cx="50%" cy="5%" r="95%">
           <Stop offset="0%"   stopColor={colorStr} stopOpacity={isOn ? 0.60 : 0.05} />
