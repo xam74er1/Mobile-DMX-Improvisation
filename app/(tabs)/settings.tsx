@@ -7,7 +7,7 @@ import {
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SceneStage } from '../../src/components/SceneStage'
-import { useLightsStore, type Light, type LightColor } from '../../src/store/lightsStore'
+import { useLightsStore, DEFAULT_LIGHTS, type Light, type LightColor } from '../../src/store/lightsStore'
 import { useZonesStore } from '../../src/store/zonesStore'
 import { useSettingsStore } from '../../src/store/settingsStore'
 import {
@@ -15,8 +15,8 @@ import {
   DEFAULT_AMBIANCES, DEFAULT_CATEGORIES,
   DEFAULT_AMBIANCE_IDS, DEFAULT_CATEGORY_IDS,
 } from '../../src/store/ambiancesStore'
-import { dmxService } from '../../src/dmx'
-import { CHANNEL_MODE_OPTIONS, type ChannelMode } from '../../src/constants/channelModes'
+import { dmxService, type DiscoveredArtNetNode } from '../../src/dmx'
+import { CHANNEL_MODE_OPTIONS, CHANNEL_MODE_CONFIGS, type ChannelMode } from '../../src/constants/channelModes'
 import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
 import {
   buildConfig, applyConfig, parseConfig,
@@ -70,6 +70,7 @@ function ConnectionTab() {
   const receiverIp = useSettingsStore((s) => s.receiverIp)
   const receiverPort = useSettingsStore((s) => s.receiverPort)
   const universe = useSettingsStore((s) => s.universe)
+  const masterIntensity = useSettingsStore((s) => s.masterIntensity)
   const setReceiverIp = useSettingsStore((s) => s.setReceiverIp)
   const setReceiverPort = useSettingsStore((s) => s.setReceiverPort)
   const setUniverse = useSettingsStore((s) => s.setUniverse)
@@ -80,6 +81,26 @@ function ConnectionTab() {
   const [universeInput, setUniverseInput] = useState(String(universe))
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<'none' | 'ok' | 'fail'>('none')
+
+  // ── Network discovery (ArtPoll scan — native only) ──────────
+  const [scanning, setScanning] = useState(false)
+  const [foundNodes, setFoundNodes] = useState<DiscoveredArtNetNode[]>([])
+  const [scanError, setScanError] = useState<string | null>(null)
+
+  async function scanNetwork() {
+    setScanning(true)
+    setScanError(null)
+    setFoundNodes([])
+    try {
+      await dmxService.discoverNodes(2500, (node) => {
+        setFoundNodes((prev) => (prev.some((n) => n.ip === node.ip) ? prev : [...prev, node]))
+      })
+    } catch (e: any) {
+      setScanError(e?.message ?? 'Scan failed')
+    } finally {
+      setScanning(false)
+    }
+  }
 
   function commitIp() { setReceiverIp(ipInput.trim() || receiverIp) }
   function commitPort() {
@@ -98,19 +119,19 @@ function ConnectionTab() {
     setTestResult('none')
     try {
       const fixtures = lights.map((l) => ({
-        id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+        id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode, maxIntensity: l.maxIntensity,
       }))
       const allOn: Record<string, LightState> = {}
       for (const f of fixtures) {
         allOn[f.id] = { r: 255, g: 255, b: 255, w: 255, a: 0, uv: 0, intensity: 100, isOn: true }
       }
-      await dmxService.sync(fixtures, allOn, false, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, allOn, false, receiverIp, receiverPort, universe, masterIntensity)
       await delay(500)
-      await dmxService.sync(fixtures, allOn, true, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, allOn, true, receiverIp, receiverPort, universe, masterIntensity)
       await delay(300)
-      await dmxService.sync(fixtures, allOn, false, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, allOn, false, receiverIp, receiverPort, universe, masterIntensity)
       await delay(500)
-      await dmxService.sync(fixtures, allOn, true, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, allOn, true, receiverIp, receiverPort, universe, masterIntensity)
       setTestResult('ok')
     } catch (e: any) {
       setTestResult('fail')
@@ -200,6 +221,52 @@ function ConnectionTab() {
           Test Connection (Blink)
         </Button>
       </View>
+
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>NETWORK DISCOVERY</Text>
+      <View style={styles.card}>
+        <Text style={styles.hint}>
+          Broadcasts an ArtPoll and lists any Art-Net receiver that answers on your WiFi network.
+        </Text>
+        <Button
+          mode="outlined"
+          onPress={scanNetwork}
+          loading={scanning}
+          disabled={scanning || !dmxService.supportsDiscovery()}
+          icon="radar"
+          style={styles.dataBtnOutline}
+          contentStyle={styles.testBtnContent}
+        >
+          Scan Network
+        </Button>
+
+        {!dmxService.supportsDiscovery() && (
+          <Text style={styles.hint}>Not available on Web — use the Android/iOS app to scan.</Text>
+        )}
+        {scanError && <Text style={styles.errorMsg}>✗ {scanError}</Text>}
+        {scanning && foundNodes.length === 0 && (
+          <Text style={styles.hint}>Scanning…</Text>
+        )}
+        {!scanning && !scanError && foundNodes.length === 0 && dmxService.supportsDiscovery() && (
+          <Text style={styles.hint}>No nodes found yet — tap Scan while on the same WiFi as your receiver.</Text>
+        )}
+
+        {foundNodes.length > 0 && (
+          <View style={styles.presetRow}>
+            {foundNodes.map((node) => (
+              <Pressable
+                key={node.ip}
+                style={[styles.presetChip, ipInput === node.ip && styles.presetChipActive]}
+                onPress={() => { setIpInput(node.ip); setReceiverIp(node.ip) }}
+              >
+                <Text style={[styles.presetChipLabel, ipInput === node.ip && styles.presetChipLabelActive]}>
+                  {node.shortName || 'Art-Net Node'}
+                </Text>
+                <Text style={styles.presetChipSub}>{node.ip}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
     </ScrollView>
   )
 }
@@ -222,6 +289,7 @@ function LightsTab() {
   const receiverIp = useSettingsStore((s) => s.receiverIp)
   const receiverPort = useSettingsStore((s) => s.receiverPort)
   const universe = useSettingsStore((s) => s.universe)
+  const masterIntensity = useSettingsStore((s) => s.masterIntensity)
 
   // ── Test mode ──────────────────────────────────────────────
   const [testMode, setTestMode] = useState(false)
@@ -233,7 +301,7 @@ function LightsTab() {
     setTestMode(true)
 
     const fixtures = lights.map((l) => ({
-      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode, maxIntensity: l.maxIntensity,
     }))
     const scene: Record<string, LightState> = {}
     lights.forEach((l, i) => {
@@ -242,7 +310,7 @@ function LightsTab() {
     })
     setTestStates(scene)
     try {
-      await dmxService.sync(fixtures, scene, false, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, scene, false, receiverIp, receiverPort, universe, masterIntensity)
     } catch {}
   }
 
@@ -252,11 +320,11 @@ function LightsTab() {
     setTestStates(null)
     // Restore active ambiance or blackout
     const fixtures = lights.map((l) => ({
-      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode, maxIntensity: l.maxIntensity,
     }))
     try {
       const restoreScene = activeAmbiance?.lightStates ?? {}
-      await dmxService.sync(fixtures, restoreScene, !activeAmbiance, receiverIp, receiverPort, universe)
+      await dmxService.sync(fixtures, restoreScene, !activeAmbiance, receiverIp, receiverPort, universe, masterIntensity)
     } catch {}
   }
 
@@ -269,7 +337,7 @@ function LightsTab() {
 
   const [newName, setNewName] = useState('')
   const [newAddr, setNewAddr] = useState('')
-  const [newMode, setNewMode] = useState<ChannelMode>('RGBWAUV')
+  const [newMode, setNewMode] = useState<ChannelMode>('DIM16_RGBWAUV')
   const [addModeMenuVisible, setAddModeMenuVisible] = useState(false)
 
   const [editName, setEditName] = useState('')
@@ -279,6 +347,7 @@ function LightsTab() {
   const [editDefaultColor, setEditDefaultColor] = useState<LightColor>({ r: 255, g: 255, b: 255, w: 0, a: 0, uv: 0 })
   const [editRotation, setEditRotation] = useState(0)
   const [editBeamWidth, setEditBeamWidth] = useState(1.0)
+  const [editMaxIntensity, setEditMaxIntensity] = useState(100)
 
   function openEdit(light: Light) {
     setEditDialog(light)
@@ -288,6 +357,7 @@ function LightsTab() {
     setEditDefaultColor(light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 })
     setEditRotation(light.rotation ?? 0)
     setEditBeamWidth(light.beamWidth ?? 1.0)
+    setEditMaxIntensity(light.maxIntensity ?? 100)
   }
 
   function confirmEdit() {
@@ -300,6 +370,7 @@ function LightsTab() {
       defaultColor: editDefaultColor,
       rotation: Math.round(editRotation),
       beamWidth: Math.round(editBeamWidth * 10) / 10,
+      maxIntensity: Math.round(editMaxIntensity),
     })
     setEditDialog(null)
   }
@@ -307,14 +378,14 @@ function LightsTab() {
   function confirmAdd() {
     const addr = parseInt(newAddr, 10)
     const nextAddr = lights.length > 0
-      ? Math.max(...lights.map((l) => l.dmxAddress + 6))
+      ? Math.max(...lights.map((l) => l.dmxAddress + CHANNEL_MODE_CONFIGS[l.channelMode].channelCount))
       : 1
     addLight(
       newName.trim() || `Light ${lights.length + 1}`,
       addr >= 1 && addr <= 512 ? addr : nextAddr,
       newMode,
     )
-    setNewName(''); setNewAddr(''); setNewMode('RGBWAUV')
+    setNewName(''); setNewAddr(''); setNewMode('DIM16_RGBWAUV')
     setAddDialog(false)
   }
 
@@ -367,29 +438,37 @@ function LightsTab() {
           </Button>
         </View>
 
-        {lights.map((light) => {
-          const dc = light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }
-          const defColorStr = `rgb(${Math.min(255, dc.r + dc.w)},${Math.min(255, dc.g + dc.w)},${Math.min(255, dc.b + dc.w)})`
-          return (
-            <View key={light.id} style={styles.lightRow}>
-              <View style={[styles.colorDot, { backgroundColor: defColorStr }]} />
-              <View style={styles.lightRowInfo}>
-                <Text style={styles.lightRowName}>{light.name}</Text>
-                <Text style={styles.lightRowMeta}>ch{light.dmxAddress} · {light.channelMode}</Text>
+        {(() => {
+          const overlapping = findOverlappingLightIds(lights)
+          return lights.map((light) => {
+            const dc = light.defaultColor ?? { r: 255, g: 255, b: 255, w: 0 }
+            const defColorStr = `rgb(${Math.min(255, dc.r + dc.w)},${Math.min(255, dc.g + dc.w)},${Math.min(255, dc.b + dc.w)})`
+            const [chStart, chEnd] = getChannelRange(light)
+            const hasOverlap = overlapping.has(light.id)
+            return (
+              <View key={light.id} style={styles.lightRow}>
+                <View style={[styles.colorDot, { backgroundColor: defColorStr }]} />
+                <View style={styles.lightRowInfo}>
+                  <Text style={styles.lightRowName}>{light.name}</Text>
+                  <Text style={[styles.lightRowMeta, hasOverlap && styles.lightRowMetaWarn]}>
+                    ch{chStart === chEnd ? chStart : `${chStart}–${chEnd}`} · {light.channelMode}
+                    {hasOverlap ? ' · ⚠ overlaps another fixture' : ''}
+                  </Text>
+                </View>
+                <IconButton icon="pencil" size={18} iconColor="#ff6b35" onPress={() => openEdit(light)} />
+                <IconButton
+                  icon="delete-outline" size={18} iconColor="#e74c3c"
+                  onPress={() =>
+                    Alert.alert('Remove', `Remove "${light.name}"?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => removeLight(light.id) },
+                    ])
+                  }
+                />
               </View>
-              <IconButton icon="pencil" size={18} iconColor="#ff6b35" onPress={() => openEdit(light)} />
-              <IconButton
-                icon="delete-outline" size={18} iconColor="#e74c3c"
-                onPress={() =>
-                  Alert.alert('Remove', `Remove "${light.name}"?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => removeLight(light.id) },
-                  ])
-                }
-              />
-            </View>
-          )
-        })}
+            )
+          })
+        })()}
         {lights.length === 0 && (
           <Text style={styles.emptyHint}>No lights yet. Tap Add to create your first fixture.</Text>
         )}
@@ -484,6 +563,23 @@ function LightsTab() {
                 thumbTintColor="#ff6b35"
                 style={styles.slider}
               />
+
+              {/* ── Max intensity cap ── */}
+              <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
+                Max Intensity: {Math.round(editMaxIntensity)}%
+              </Text>
+              <Slider
+                value={editMaxIntensity}
+                onValueChange={setEditMaxIntensity}
+                minimumValue={5}
+                maximumValue={100}
+                step={5}
+                minimumTrackTintColor="#ff6b35"
+                maximumTrackTintColor="#333"
+                thumbTintColor="#ff6b35"
+                style={styles.slider}
+              />
+              <Text style={styles.hint}>Hard cap — this light never goes brighter than this.</Text>
 
               {/* ── Default color picker ── */}
               <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Default Color (shown when no ambiance active)</Text>
@@ -648,7 +744,7 @@ function DataTab() {
   function handleFactoryReset() {
     Alert.alert(
       'Factory Reset',
-      `This will delete all ${customAmbiances.length} custom ambiances and restore the original factory presets. This cannot be undone.`,
+      `This will delete all ${customAmbiances.length} custom ambiances and all ${lights.length} configured lights, restoring the original 4 fixtures (11ch Dim16 mode) and factory presets. This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -660,6 +756,7 @@ function DataTab() {
               categories: DEFAULT_CATEGORIES,
               activeAmbianceId: null,
             })
+            useLightsStore.setState({ lights: DEFAULT_LIGHTS })
             showOk('Restored factory defaults.')
           },
         },
@@ -775,8 +872,8 @@ function DataTab() {
       <View style={[styles.card, styles.dangerCard]}>
         <Text style={styles.dialogLabel}>Factory Reset</Text>
         <Text style={styles.hint}>
-          Deletes all custom ambiances and categories, then restores the original factory presets.
-          Your light fixtures and network settings are kept.
+          Deletes all custom ambiances, categories, and configured lights, then restores the
+          original 4 fixtures (11ch Dim16 mode) and factory presets. Network settings are kept.
         </Text>
         <Button
           icon="restore"
@@ -848,6 +945,26 @@ function ZoneEditor() {
       ))}
     </View>
   )
+}
+
+function getChannelRange(light: Light): [number, number] {
+  const count = CHANNEL_MODE_CONFIGS[light.channelMode].channelCount
+  return [light.dmxAddress, light.dmxAddress + count - 1]
+}
+
+function findOverlappingLightIds(lights: Light[]): Set<string> {
+  const overlapping = new Set<string>()
+  for (let i = 0; i < lights.length; i++) {
+    const [aStart, aEnd] = getChannelRange(lights[i])
+    for (let j = i + 1; j < lights.length; j++) {
+      const [bStart, bEnd] = getChannelRange(lights[j])
+      if (aStart <= bEnd && bStart <= aEnd) {
+        overlapping.add(lights[i].id)
+        overlapping.add(lights[j].id)
+      }
+    }
+  }
+  return overlapping
 }
 
 function rotationLabel(deg: number): string {
@@ -934,6 +1051,7 @@ const styles = StyleSheet.create({
   lightRowInfo: { flex: 1 },
   lightRowName: { fontSize: 14, fontWeight: '600', color: '#fff' },
   lightRowMeta: { fontSize: 11, color: '#555', marginTop: 2 },
+  lightRowMetaWarn: { color: '#e74c3c' },
   emptyHint: { color: '#444', fontSize: 13, textAlign: 'center', marginTop: 16 },
 
   editScrollArea: { maxHeight: 420 },
