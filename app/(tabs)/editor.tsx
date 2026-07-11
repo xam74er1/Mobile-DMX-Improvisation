@@ -307,7 +307,11 @@ export default function EditorScreen() {
               </View>
               <IconButton icon="pencil" size={16} iconColor="#888" onPress={() => openEditEffect(eff)} />
               <IconButton icon="delete-outline" size={16} iconColor="#e74c3c"
-                onPress={() => removeEffect(editingId, eff.id)} />
+                onPress={() => {
+                  // No-op if it isn't currently running (e.g. ambiance not active).
+                  effectsRunner.stopSlot(eff.id)
+                  removeEffect(editingId, eff.id)
+                }} />
             </View>
           )
         })}

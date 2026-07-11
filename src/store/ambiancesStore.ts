@@ -5,6 +5,7 @@ import type { FixtureState } from '../dmx/DMXService'
 import { dmxService } from '../dmx'
 import { useLightsStore } from './lightsStore'
 import { useSettingsStore } from './settingsStore'
+import { useDMXStatusStore } from './dmxStatusStore'
 import type { AmbianceEffect } from '../effects/runner'
 
 export type LightState = FixtureState
@@ -147,13 +148,17 @@ export const DEFAULT_CATEGORY_IDS: Set<string> = new Set(DEFAULT_CATEGORIES.map(
 
 function sendDMX(lightStates: Record<string, LightState> | null, blackout: boolean) {
   const lights = useLightsStore.getState().lights
-  const { receiverIp, receiverPort, universe } = useSettingsStore.getState()
+  const { receiverIp, receiverPort, universe, masterIntensity } = useSettingsStore.getState()
   const fixtures = lights.map((l) => ({
-    id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+    id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode, maxIntensity: l.maxIntensity,
   }))
   dmxService
-    .sync(fixtures, lightStates ?? {}, blackout || lightStates === null, receiverIp, receiverPort, universe)
-    .catch((e) => console.warn('[DMX]', e))
+    .sync(fixtures, lightStates ?? {}, blackout || lightStates === null, receiverIp, receiverPort, universe, masterIntensity)
+    .then(() => useDMXStatusStore.getState().reportSuccess())
+    .catch((e) => {
+      console.warn('[DMX]', e)
+      useDMXStatusStore.getState().reportError(e?.message ?? 'Send failed')
+    })
 }
 
 interface AmbiancesState {
@@ -166,6 +171,7 @@ interface AmbiancesState {
   deactivateAll: () => void
   setBlackout: (on: boolean) => void
   toggleBlackout: () => void
+  resendCurrent: () => void
 
   addAmbiance: (name: string, categoryId?: string) => string
   removeAmbiance: (id: string) => void
@@ -200,6 +206,10 @@ export const useAmbiancesStore = create<AmbiancesState>()(
         const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
         const ambiance = get().ambiances.find((a) => a.id === id)
         if (!ambiance) return
+        // A manual Fade In/Out from Panel 1 must not linger and clobber the
+        // newly-activated ambiance a second or two later (e.g. forcing it to
+        // blackout once the old fade-out timer completes).
+        effectsRunner.stopManualFades()
         set({ activeAmbianceId: id, blackout: false })
         sendDMX(ambiance.lightStates, false)
         effectsRunner.startAmbianceEffects(ambiance.effects ?? [])
@@ -208,11 +218,14 @@ export const useAmbiancesStore = create<AmbiancesState>()(
       deactivateAll: () => {
         const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
         effectsRunner.stopAmbianceEffects()
+        effectsRunner.stopManualFades()
         set({ activeAmbianceId: null })
         sendDMX(null, false)
       },
 
       setBlackout: (on) => {
+        const { effectsRunner } = require('../effects/runner') as typeof import('../effects/runner')
+        effectsRunner.stopManualFades()
         set({ blackout: on })
         if (on) {
           sendDMX(null, true)
@@ -224,6 +237,14 @@ export const useAmbiancesStore = create<AmbiancesState>()(
       },
 
       toggleBlackout: () => { get().setBlackout(!get().blackout) },
+
+      // Re-send the current scene as-is — used when a global setting that
+      // affects DMX output (e.g. master intensity) changes.
+      resendCurrent: () => {
+        const { activeAmbianceId, ambiances, blackout } = get()
+        const active = ambiances.find((a) => a.id === activeAmbianceId)
+        sendDMX(active?.lightStates ?? null, blackout)
+      },
 
       addAmbiance: (name, categoryId) => {
         const id = `amb-${makeId()}`

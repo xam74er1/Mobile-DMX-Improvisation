@@ -22,6 +22,7 @@ export interface Light {
   rotation: number    // degrees — 0 = beam toward stage/floor (↓), 90 = right, 180 = toward audience (top)
   beamWidth: number   // 0.3 (tight spot) → 2.5 (wide wash), default 1.0
   defaultColor: LightColor
+  maxIntensity?: number  // 0–100 per-light brightness cap (default 100)
 }
 
 function makeId() {
@@ -44,7 +45,7 @@ const DEFAULT_COLORS_CYCLE: LightColor[] = [
 
 // 4 fixtures, 11ch mode each (16-bit dim + strobe + RGBWA+UV), 11 channels apart:
 // addresses 1, 12, 23, 34 — matches the Cameo ROOT PAR 6 11ch DMX chart.
-const DEFAULT_LIGHTS: Light[] = [0.2, 0.4, 0.6, 0.8].map((sceneX, i) => ({
+export const DEFAULT_LIGHTS: Light[] = [0.2, 0.4, 0.6, 0.8].map((sceneX, i) => ({
   id: `light-${i + 1}`,
   name: `Light ${i + 1}`,
   dmxAddress: i * 11 + 1,

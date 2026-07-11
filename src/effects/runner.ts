@@ -7,6 +7,7 @@ import { dmxService } from '../dmx'
 import { useLightsStore } from '../store/lightsStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useAmbiancesStore } from '../store/ambiancesStore'
+import { useDMXStatusStore } from '../store/dmxStatusStore'
 import { EFFECT_PRESET_MAP, type RGBW } from './presets'
 
 export const FRAME_MS = 50   // tick interval
@@ -25,6 +26,7 @@ export interface AmbianceEffect {
   fromColor?: RGBW        // primary color (heartbeat flash color, alternate color A, transition start)
   colorB?: RGBW           // secondary color (alternate color B only)
   toColor?: RGBW          // color transition end color
+  onComplete?: () => void // fired when a non-repeating effect finishes naturally
 }
 
 interface SlotConfig {
@@ -45,6 +47,7 @@ interface Slot {
   config: SlotConfig
   frame: number
   repeat: boolean
+  onComplete?: () => void
 }
 
 type FrameOutput = {
@@ -79,6 +82,7 @@ class EffectsRunner {
       targetLightIds: effect.targetLightIds,
       frame: 0,
       repeat: effect.repeat,
+      onComplete: effect.onComplete,
       config: {
         kind: preset.kind,
         periodFrames,
@@ -98,9 +102,18 @@ class EffectsRunner {
 
   stopSlot(id: string) {
     if (this.slots.delete(id)) {
-      this.mergeSend(new Map())
+      // Re-merge the REMAINING running slots' current frame instead of a blank
+      // map — otherwise any other still-running effect blinks off for one
+      // frame (~50ms) whenever an unrelated slot is stopped.
+      this.mergeSend(this.currentOutputs())
       if (this.slots.size === 0) this.stopTicker()
     }
+  }
+
+  /** Stop the manual Fade In / Fade Out slots from Panel 1 (no-op if not running). */
+  stopManualFades() {
+    this.stopSlot('fade-in-manual')
+    this.stopSlot('fade-out-manual')
   }
 
   /** Start all effects for the active ambiance. */
@@ -155,22 +168,25 @@ class EffectsRunner {
     if (this.slots.size === 0) { this.stopTicker(); return }
 
     const outputs = new Map<string, FrameOutput>()
-    const toRemove: string[] = []
+    const completed: Slot[] = []
 
-    for (const [slotId, slot] of this.slots) {
+    for (const [, slot] of this.slots) {
       slot.frame++
       const out = this.computeFrame(slot)
       if (out === null) {
-        toRemove.push(slotId)
+        completed.push(slot)
         continue
       }
       const lightIds = this.resolveLightIds(slot.targetLightIds)
       for (const id of lightIds) outputs.set(id, out)
     }
 
-    for (const id of toRemove) {
-      this.ambianceSlotIds.delete(id)
-      this.slots.delete(id)
+    // Fire completion callbacks BEFORE the merge-send so they can update state
+    // (e.g. fade-out engages blackout) that the send below will respect.
+    for (const slot of completed) {
+      this.ambianceSlotIds.delete(slot.id)
+      this.slots.delete(slot.id)
+      slot.onComplete?.()
     }
 
     this.mergeSend(outputs)
@@ -187,8 +203,16 @@ class EffectsRunner {
 
     switch (kind) {
       case 'flash': {
-        if (frame <= flashFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
-        if (!repeat) { slot.repeat = false; return null }
+        if (!repeat) {
+          // One-shot: fixed short flash from the preset's own duration (e.g.
+          // Gunshot's 70ms) — NOT the BPM-derived flashFrames used below,
+          // which would stretch the flash to a full beat period.
+          if (frame <= totalFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
+          return null
+        }
+        // Repeating: re-flash every period (mirrors strobe/beat).
+        const phase = frame % periodFrames
+        if (phase < flashFrames) return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         return OFF
       }
 
@@ -231,12 +255,14 @@ class EffectsRunner {
       }
 
       case 'ramp_up': {
-        const t = Math.min(1, frame / totalFrames)
         if (frame > totalFrames) {
-          if (!repeat) return null
-          slot.frame = 0
-          return OFF
+          if (repeat) { slot.frame = 0; return OFF }
+          // Hold at full brightness — a completed fade-in stays on until
+          // something else (blackout, fade-out, new ambiance) replaces it,
+          // instead of instantly reverting to whatever scene is behind it.
+          return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: maxIntensity, isOn: true, intensityOnly }
         }
+        const t = Math.min(1, frame / totalFrames)
         return { ...color, a: color.a ?? 0, uv: color.uv ?? 0, intensity: t * maxIntensity, isOn: true, intensityOnly }
       }
 
@@ -286,12 +312,12 @@ class EffectsRunner {
 
   private mergeSend(outputs: Map<string, FrameOutput>) {
     const lights = useLightsStore.getState().lights
-    const { receiverIp, receiverPort, universe } = useSettingsStore.getState()
+    const { receiverIp, receiverPort, universe, masterIntensity } = useSettingsStore.getState()
     const { activeAmbianceId, ambiances, blackout } = useAmbiancesStore.getState()
     const active = ambiances.find((a) => a.id === activeAmbianceId)
 
     const fixtures = lights.map((l) => ({
-      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode,
+      id: l.id, dmxAddress: l.dmxAddress, channelMode: l.channelMode, maxIntensity: l.maxIntensity,
     }))
 
     const scene: Record<string, FrameOutput> = {}
@@ -315,12 +341,25 @@ class EffectsRunner {
     }
 
     dmxService
-      .sync(fixtures, scene, blackout, receiverIp, receiverPort, universe)
-      .catch(() => {})
+      .sync(fixtures, scene, blackout, receiverIp, receiverPort, universe, masterIntensity)
+      .then(() => useDMXStatusStore.getState().reportSuccess())
+      .catch((e) => useDMXStatusStore.getState().reportError(e?.message ?? 'Send failed'))
   }
 
   private restoreAmbiance() {
-    this.mergeSend(new Map())
+    this.mergeSend(this.currentOutputs())
+  }
+
+  /** Recompute the current frame for every running slot without advancing time. */
+  private currentOutputs(): Map<string, FrameOutput> {
+    const outputs = new Map<string, FrameOutput>()
+    for (const [, slot] of this.slots) {
+      const out = this.computeFrame(slot)
+      if (out === null) continue
+      const lightIds = this.resolveLightIds(slot.targetLightIds)
+      for (const id of lightIds) outputs.set(id, out)
+    }
+    return outputs
   }
 
   private resolveLightIds(target: string[] | 'all'): string[] {
