@@ -27,24 +27,28 @@ src/
     DMXService.ts        # Universe state manager, maps fixtures → channels
     index.ts             # Factory: picks right client per platform
 
+  effects/
+    presets.ts           # Effect definitions (strobe, heartbeat, ramps, etc.)
+    runner.ts            # Frame-based (20fps) effects engine — drives DMXService
+
   store/
-    fixturesStore.ts     # Fixture list: name, DMX address, channel mode
-    sceneStore.ts        # Live state: current color+intensity per fixture
-    settingsStore.ts     # Network config: IP, port, universe
-    profilesStore.ts     # Categories/folders for Panel 1
+    lightsStore.ts       # Fixture list: name, DMX address, channel mode, position
+    ambiancesStore.ts    # Scenes ("ambiances"): per-light color/intensity + effects
+    settingsStore.ts     # Network config: IP, port, universe, master intensity
+    zonesStore.ts        # Named stage zones for the virtual scene view
 
   components/
     BlackoutButton.tsx   # Big on/off at top of Panel 1
-    LightCard.tsx        # Colored fixture card in Panel 1
-    CategoryFolder.tsx   # Collapsible group of LightCards
-    SimpleColorPicker.tsx  # Color swatches (R/G/B/W + custom)
-    WheelColorPicker.tsx   # Chromatic HSV wheel
+    AmbianceCard.tsx      # Scene card in Panel 1
+    EffectsBar.tsx        # Global one-tap effects (strobe, police, etc.)
+    SimpleColorPicker.tsx # Color swatches (R/G/B/W + custom)
+    WheelColorPicker.tsx  # Chromatic HSV wheel
     IntensitySlider.tsx  # 0–100% brightness slider
-    FixtureChannelEditor.tsx  # Channel mode + address editor (Panel 3)
+    SceneStage.tsx        # Virtual stage preview (Panel 3)
 
   constants/
     defaultColors.ts     # Preset colors: Red, Green, Blue, White, etc.
-    channelModes.ts      # Supported DMX channel mode definitions
+    channelModes.ts      # Supported DMX channel mode definitions + channel counts
 ```
 
 ---
@@ -56,18 +60,21 @@ The `src/dmx/` folder is intentionally **self-contained**. The rest of the app o
 ```typescript
 // types.ts — the contract
 interface IDMXClient {
-  connect(host: string, port: number): Promise<void>
-  sendUniverse(universe: number, channels: Uint8Array): Promise<void>
-  disconnect(): void
-  readonly isConnected: boolean
+  sendUniverse(host: string, port: number, universe: number, channels: Uint8Array): Promise<void>
+  dispose(): void
+  // Optional — only implemented by transports that speak real Art-Net UDP (native)
+  discoverNodes?(durationMs: number, onNode: (node: DiscoveredArtNetNode) => void): Promise<void>
 }
 ```
 
-**To swap the protocol** (e.g. Art-Net → sACN, or HTTP): implement `IDMXClient` in a new file, update `src/dmx/index.ts` factory. Nothing else changes.
+**To swap the protocol** (e.g. Art-Net → sACN, or HTTP): implement `IDMXClient` in a new file, update `src/dmx/index.ts` factory. Nothing else changes. Two implementations exist today: `ArtNetClient` (native, real UDP) and `WebSocketDMXClient` (web — relays to the desktop visualizer's Python server since browsers can't do raw UDP).
 
 **Art-Net specifics:**
 - UDP port `6454` (standard Art-Net port)
 - Eurolite FreeDMX AP default IP: `2.0.0.1` (its own AP DHCP)
+- Sequence byte increments 1–255 per packet so receivers can discard out-of-order UDP
+- A 1s keep-alive resends the last frame verbatim even when nothing changes, so a receiver's signal-loss timeout never trips during a static scene
+- **Network discovery**: `ArtNetClient.discoverNodes()` broadcasts an ArtPoll and reports each ArtPollReply — surfaced in Settings → Connection as "Scan Network". Not available on web (`DMXService.supportsDiscovery()` gates the UI)
 - OpOutput packet: 12-byte header + 512 DMX channel values
 - Universe 0 by default
 
@@ -75,16 +82,9 @@ interface IDMXClient {
 
 ## Channel Modes
 
-Each fixture declares its DMX channel layout:
+Each fixture declares its DMX channel layout (see `src/constants/channelModes.ts` for the full list and exact channel counts — from 3ch `RGB` up to 11ch `DIM16_RGBWAUV`, matching the Cameo ROOT PAR 6).
 
-| Mode | Channels | Description |
-|------|----------|-------------|
-| `RGB` | 3 | R, G, B |
-| `RGBW` | 4 | R, G, B, W |
-| `DIM_RGB` | 4 | Dimmer, R, G, B |
-| `DIM_RGBW` | 5 | Dimmer, R, G, B, W |
-
-Each fixture also has a **DMX start address** (1–512). `DMXService` writes the correct bytes at the right offset.
+Each fixture also has a **DMX start address** (1–512) and an optional **max intensity cap** (0–100%, hard brightness ceiling for that fixture). `DMXService` writes the correct bytes at the right offset, scaled by both the fixture's own intensity and the global master intensity from `settingsStore`.
 
 ---
 
@@ -94,10 +94,12 @@ All state is **Zustand** stores with **AsyncStorage** persistence:
 
 | Store | Contents | Persisted |
 |-------|----------|-----------|
-| `fixturesStore` | Fixture configs | Yes |
-| `sceneStore` | Current colors/intensity | Optional |
-| `settingsStore` | IP, port, universe | Yes |
-| `profilesStore` | Categories + order | Yes |
+| `lightsStore` | Fixture configs (address, channel mode, position, max intensity) | Yes |
+| `ambiancesStore` | Scenes ("ambiances"): per-light color/intensity + attached effects, blackout flag | Yes |
+| `settingsStore` | Receiver IP/port, universe, master intensity | Yes |
+| `zonesStore` | Named stage zones for the virtual scene preview | Yes |
+
+The effects engine (`src/effects/runner.ts`) is a singleton, not a Zustand store — it owns its own 50ms ticker and pushes frames straight to `DMXService`, independent of React render cycles.
 
 ---
 
@@ -105,21 +107,21 @@ All state is **Zustand** stores with **AsyncStorage** persistence:
 
 ### Panel 1 — Control (show mode)
 - Full-width **Blackout** button at top (one tap → all lights off)
-- Grid of fixture cards grouped by category
-- Tap card: toggle fixture on/off + send DMX
-- Long-press card: jump to Panel 2 for that fixture
-- FAB (+): add fixture or category
+- Manual **Fade In / Fade Out** buttons (ramp all lights from/to black over a fixed duration)
+- **Master intensity** slider — global brightness cap applied on top of every light's own intensity
+- Grid of ambiance ("scene") cards grouped by category — tap to activate/deactivate
+- Long-press card: rename, duplicate, move, delete, or jump to Panel 2
 
 ### Panel 2 — Light Editor
-- "All lights" toggle (edit all simultaneously)
-- Per-fixture: simple color swatches, chromatic wheel, intensity slider
-- Copy/paste color between fixtures
-- All changes send DMX live
+- Pick an ambiance to edit, then a light (or "All Lights")
+- Simple color swatches, chromatic wheel or RGBW/A/UV sliders, intensity slider
+- Attach effects (strobe, heartbeat, ramps, color transitions, etc.) to the ambiance
+- All changes send DMX live when that ambiance is active
 
 ### Panel 3 — Settings
-- Fixture list: add/remove/rename, set DMX address + channel mode
-- Network config: receiver IP, UDP port, Art-Net universe
-- "Test connection" button (sends a blink sequence)
+- **Connection tab**: receiver IP, UDP port, Art-Net universe, test-connection blink
+- **Lights tab**: virtual stage preview, add/remove/configure fixtures (address, channel mode, rotation, beam width, default color, max intensity), stage zones
+- **Backup tab**: export/import ambiances (JSON or Myriad SLS), factory reset
 
 ---
 
@@ -127,7 +129,7 @@ All state is **Zustand** stores with **AsyncStorage** persistence:
 
 | Package | Purpose |
 |---------|---------|
-| `expo` ~51 | Core SDK |
+| `expo` ~54 | Core SDK |
 | `expo-router` | File-based navigation |
 | `expo-dev-client` | Enables native modules (needed for UDP) |
 | `react-native-udp` | Raw UDP for Art-Net |
