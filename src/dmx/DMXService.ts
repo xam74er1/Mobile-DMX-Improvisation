@@ -1,10 +1,13 @@
-import type { IDMXClient } from './types'
+import type { IDMXClient, DiscoveredArtNetNode } from './types'
 import type { ChannelMode } from '../constants/channelModes'
+
+export type { DiscoveredArtNetNode }
 
 export interface FixtureConfig {
   id: string
   dmxAddress: number   // 1-based (1–512)
   channelMode: ChannelMode
+  maxIntensity?: number  // 0–100 per-fixture brightness cap (default 100)
 }
 
 export interface FixtureState {
@@ -30,25 +33,28 @@ export class DMXService {
     host: string,
     port: number,
     universeIndex: number,
+    masterIntensity: number = 100,
   ): Promise<void> {
     this.universe.fill(0)
 
     if (!blackout) {
+      const masterRatio = Math.min(100, Math.max(0, masterIntensity)) / 100
       for (const fixture of fixtures) {
         const state = scene[fixture.id]
         if (!state?.isOn) continue
-        this.writeFixture(fixture, state)
+        this.writeFixture(fixture, state, masterRatio)
       }
     }
 
     await this.client.sendUniverse(host, port, universeIndex, this.universe)
   }
 
-  private writeFixture(fixture: FixtureConfig, state: FixtureState) {
+  private writeFixture(fixture: FixtureConfig, state: FixtureState, masterRatio: number = 1) {
     const addr = fixture.dmxAddress - 1  // convert to 0-indexed
     if (addr < 0 || addr >= 512) return
 
-    const ratio = state.intensity / 100
+    const capRatio = (fixture.maxIntensity ?? 100) / 100
+    const ratio = (state.intensity / 100) * masterRatio * capRatio
     const r   = Math.round(state.r           * ratio)
     const g   = Math.round(state.g           * ratio)
     const b   = Math.round(state.b           * ratio)
@@ -156,5 +162,21 @@ export class DMXService {
 
   dispose() {
     this.client.dispose()
+  }
+
+  /** True on platforms whose client can broadcast an ArtPoll (native only). */
+  supportsDiscovery(): boolean {
+    return typeof this.client.discoverNodes === 'function'
+  }
+
+  /** Broadcast an ArtPoll and report each responding node for `durationMs`. */
+  discoverNodes(
+    durationMs: number,
+    onNode: (node: DiscoveredArtNetNode) => void,
+  ): Promise<void> {
+    if (!this.client.discoverNodes) {
+      return Promise.reject(new Error('Network discovery needs the Android/iOS app — not available on Web.'))
+    }
+    return this.client.discoverNodes(durationMs, onNode)
   }
 }

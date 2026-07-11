@@ -15,6 +15,6 @@ function createClient(): IDMXClient {
 
 export const dmxService = new DMXService(createClient())
 
-export type { IDMXClient } from './types'
+export type { IDMXClient, DiscoveredArtNetNode } from './types'
 export { DMXService } from './DMXService'
 export type { FixtureConfig, FixtureState } from './DMXService'

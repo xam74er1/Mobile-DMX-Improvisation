@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import socket
 import sys
 import threading
 import webbrowser
@@ -8,10 +9,52 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import websockets
 
+
+def get_local_ip() -> str:
+    """Best-effort LAN IP — used to fill the ArtPollReply's own address field.
+    The UDP "connect" here never sends a packet; it just asks the OS which
+    local interface/address would be used to route to that destination.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        return s.getsockname()[0]
+    except OSError:
+        return '127.0.0.1'
+    finally:
+        s.close()
+
+
+def build_artpoll_reply(local_ip: str) -> bytes:
+    """Minimal ArtPollReply (OpCode 0x2100) so the app's network-scan feature
+    has a real Art-Net node to discover during development."""
+    packet = bytearray(239)
+    packet[0:8] = b'Art-Net\x00'
+    packet[8] = 0x00
+    packet[9] = 0x21  # OpCode 0x2100, little-endian
+    ip_bytes = bytes(int(x) for x in local_ip.split('.'))
+    packet[10:14] = ip_bytes
+    packet[14] = 0x36  # Port 6454, little-endian
+    packet[15] = 0x19
+    packet[20] = 0x00  # OemHi
+    packet[21] = 0xff  # OemLo — 0x00FF is unregistered/prototype, avoids claiming a real vendor
+    short_name = b'DMX Visualizer'
+    packet[26:26 + len(short_name)] = short_name
+    long_name = b'Mobile DMX Improvisator - Desktop Visualizer'
+    packet[44:44 + len(long_name)] = long_name
+    packet[172] = 0x00  # NumPortsHi
+    packet[173] = 0x01  # NumPortsLo
+    packet[174] = 0x80  # PortTypes[0]: output-capable, DMX512
+    packet[200] = 0x00  # Style: StNode
+    packet[207:211] = ip_bytes  # BindIp
+    packet[211] = 0x01  # BindIndex
+    return bytes(packet)
+
 class DMXServer:
     def __init__(self):
         self.dmx_data = [0] * 512
         self.clients = set()
+        self.last_sequence = None
 
     async def register(self, websocket):
         self.clients.add(websocket)
@@ -60,11 +103,13 @@ class DMXServer:
         if len(data) > 18 and data[0:8] == b'Art-Net\x00':
             opcode = data[8] | (data[9] << 8)
             if opcode == 0x5000:  # ArtDMX
+                sequence = data[12]
                 length = (data[16] << 8) | data[17]
                 universe_data = data[18:18 + length]
                 for i, val in enumerate(universe_data):
                     if i < 512:
                         self.dmx_data[i] = val
+                self.last_sequence = sequence
                 return True
         return False
 
@@ -83,8 +128,25 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
     def __init__(self, dmx_server):
         self.dmx_server = dmx_server
         self.loop = asyncio.get_running_loop()
+        self.transport = None
+        self.local_ip = get_local_ip()
+
+    def connection_made(self, transport):
+        self.transport = transport
 
     def datagram_received(self, data, addr):
+        if len(data) >= 10 and data[0:8] == b'Art-Net\x00':
+            opcode = data[8] | (data[9] << 8)
+            if opcode == 0x2000:  # ArtPoll — reply so the app's network scan finds us
+                reply = build_artpoll_reply(self.local_ip)
+                if self.transport:
+                    # Unicast straight back to the sender's own bound port (the
+                    # app's discovery socket is bound to 6454, matching `addr`
+                    # here since it sent the poll from that same socket).
+                    self.transport.sendto(reply, addr)
+                print(f"[Art-Net] ArtPoll from {addr[0]}:{addr[1]} — replied")
+                return
+
         updated = False
         protocol = ""
         if len(data) > 8 and data[0:8] == b'Art-Net\x00':
@@ -103,7 +165,9 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
                 if v > 0
             ][:10]
             summary = "  ".join(non_zero) if non_zero else "(all zero)"
-            print(f"[{protocol}] Packet from {addr[0]}:{addr[1]}  {summary}")
+            seq = self.dmx_server.last_sequence
+            seq_str = f"seq={seq}  " if seq is not None else ""
+            print(f"[{protocol}] Packet from {addr[0]}:{addr[1]}  {seq_str}{summary}")
             asyncio.create_task(self.dmx_server.broadcast_dmx())
 
 
