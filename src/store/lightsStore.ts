@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { ChannelMode } from '../constants/channelModes'
+import { CHANNEL_MODE_CONFIGS, type ChannelMode } from '../constants/channelModes'
 
 export interface LightColor {
   r: number
@@ -64,6 +64,13 @@ interface LightsState {
   updateLightPosition: (id: string, x: number, y: number) => void
   removeLight: (id: string) => void
   moveLight: (fromIndex: number, toIndex: number) => void
+  /** Apply the same channel mode to every configured fixture at once —
+   * for rigs where all lights are the same physical model. */
+  setAllChannelMode: (mode: ChannelMode) => void
+  /** Reassign DMX start addresses in list order, starting at `startAddress`,
+   * stepping each light by its own channel mode's channel count so fixtures
+   * never overlap (matches how the Cameo manual explains DMX addressing). */
+  renumberSequential: (startAddress?: number) => void
 }
 
 export const useLightsStore = create<LightsState>()(
@@ -107,6 +114,22 @@ export const useLightsStore = create<LightsState>()(
           const [item] = arr.splice(fromIndex, 1)
           arr.splice(toIndex, 0, item)
           return { lights: arr }
+        }),
+
+      setAllChannelMode: (mode) =>
+        set((s) => ({
+          lights: s.lights.map((l) => ({ ...l, channelMode: mode })),
+        })),
+
+      renumberSequential: (startAddress = 1) =>
+        set((s) => {
+          let addr = Math.min(512, Math.max(1, Math.round(startAddress)))
+          const lights = s.lights.map((l) => {
+            const placed = { ...l, dmxAddress: addr }
+            addr += CHANNEL_MODE_CONFIGS[l.channelMode].channelCount
+            return placed
+          })
+          return { lights }
         }),
     }),
     {
