@@ -86,6 +86,24 @@ Each fixture declares its DMX channel layout (see `src/constants/channelModes.ts
 
 Each fixture also has a **DMX start address** (1–512) and an optional **max intensity cap** (0–100%, hard brightness ceiling for that fixture). `DMXService` writes the correct bytes at the right offset, scaled by both the fixture's own intensity and the global master intensity from `settingsStore`.
 
+### Cameo ROOT PAR 4 / 6 cheat sheet
+
+The default rig is built around the **Cameo ROOT PAR 6** (6× RGBWA+UV LEDs); the ROOT PAR 4 (7× RGBW) is also supported via the RGBW-only modes. Mapping between this app's channel modes and the fixture's own `MODE → DMX Mode` menu:
+
+| App channel mode | Fixture DMX mode | Bytes sent |
+|---|---|---|
+| `RGB` (3ch) / `RGBW` (4ch) | ROOT PAR 4: `4CH1` | R,G,B[,W] |
+| `RGBWA` (5ch) | — | R,G,B,W,A |
+| `RGBWAUV` (6ch) | ROOT PAR 6: `6CH` | R,G,B,W,A,UV |
+| `DIM_RGBWAUV` (8ch) | ROOT PAR 6: `8CH` | Dim,Strobe,R,G,B,W,A,UV |
+| `DIM16_RGBWAUV` (11ch, **default**) | ROOT PAR 6: `11CH` | Dim(coarse),Dim(fine),Strobe,R,G,B,W,A,UV,Macro,MacroSpeed |
+
+To set these on the physical fixture: `MODE` → `DMX Mode` → select with `UP`/`DOWN` → `ENTER` → `MODE` to return. Set the matching start address via `MODE` → `DMX Address` → `UP`/`DOWN` (hold to fast-scroll) → `ENTER`.
+
+Two fixture-side settings worth knowing when debugging odd behavior between shows:
+- **`Settings → Sig Fail`** on the fixture controls what it does when DMX stops arriving (e.g. app closed, phone disconnects mid-show): `Hold` keeps the last frame (default), `Black` blacks out, `User 1` shows a stored preset. If a light "gets stuck" after you stop the app, this is why — it's expected, not a bug.
+- If fixtures are also daisy-chained via physical DMX XLR cable (rather than each getting its own Art-Net-to-DMX node), the **last fixture in that chain needs a 120Ω terminator**, and a chain tops out at 32 devices — unrelated to this app's WiFi/Art-Net side, but a common source of "some lights work, the last one doesn't."
+
 ---
 
 ## State Management
@@ -119,9 +137,28 @@ The effects engine (`src/effects/runner.ts`) is a singleton, not a Zustand store
 - All changes send DMX live when that ambiance is active
 
 ### Panel 3 — Settings
-- **Connection tab**: receiver IP, UDP port, Art-Net universe, test-connection blink
-- **Lights tab**: virtual stage preview, add/remove/configure fixtures (address, channel mode, rotation, beam width, default color, max intensity), stage zones
+- **Connection tab**: receiver IP, UDP port, Art-Net universe, test-connection blink, network discovery (ArtPoll scan)
+- **Lights tab**: virtual stage preview, add/remove/configure fixtures (address, channel mode, rotation, beam width, default color, max intensity), **Bulk Setup** (apply one channel mode to every fixture at once; auto-renumber DMX addresses in list order, stepping each fixture by its own channel count), stage zones
 - **Backup tab**: export/import ambiances (JSON or Myriad SLS), factory reset
+
+---
+
+## Debugging a Failed Show / Connection
+
+When a light doesn't respond, work through this list roughly top to bottom — later steps assume earlier ones are already ruled out.
+
+1. **Check the connection status dot** (small colored dot + label shown near the top of Panel 1/2 once a packet has been sent). Green = UDP sends are succeeding at the OS level; red = the send itself is failing (usually wrong/unreachable IP, or the phone isn't on the fixture's network at all).
+2. **Settings → Connection → Test Connection (Blink)** sends two on/off blinks to every configured fixture. If nothing blinks but the app reports success, the UDP packet left the phone fine — the problem is downstream (wrong IP/address/mode on the receiver side, not the app).
+3. **Settings → Connection → Scan Network** broadcasts an ArtPoll and lists every Art-Net node that answers. If your receiver doesn't show up here, the phone and the FreeDMX AP are not on the same WiFi network — fix that before touching anything else. (Not available on Web; native app only.)
+4. **Wrong network is the #1 real-world cause of "nothing happens."** The Eurolite FreeDMX AP creates its own WiFi access point (default IP `2.0.0.1`, sometimes shown in-app as the "Show" preset `192.168.4.1` depending on firmware/config). Your phone must join *that* WiFi network, not your home/venue WiFi — Art-Net UDP packets don't route across networks or through most routers' AP isolation.
+5. **DMX start address mismatch.** The address configured in this app for a fixture (Panel 3 → Lights → pencil icon) must exactly match the address set on the physical fixture's own display/menu. On a Cameo ROOT PAR, that's `MODE → DMX Address → 001–512` on the fixture's OLED menu (hold `UP`/`DOWN` to change the value fast). If addresses don't match, that fixture will read someone else's channel data — it may still light up, just with the wrong colors, or not at all.
+6. **Channel mode mismatch.** The channel mode picked in this app (e.g. `RGBWA+UV (6ch)`, `Dim16 + RGBWA+UV (11ch)`) must match the DMX mode set on the fixture (`MODE → DMX Mode` on a Cameo ROOT PAR). If the app sends 6 channels' worth of data but the fixture is set to an 11-channel mode, everything after channel 6 is unfed and the color/dimmer mapping will be off. See `src/constants/channelModes.ts` for the exact channel layout the app sends per mode, and use **Bulk Setup** (Panel 3 → Lights) to push one mode to every fixture at once if the whole rig is the same model.
+7. **Overlapping addresses.** The Lights tab list flags fixtures whose channel ranges overlap (⚠ overlaps another fixture) — two fixtures fighting over the same channels will both misbehave. Use **Bulk Setup → Renumber DMX addresses** to auto-space every fixture by its own channel count instead of computing offsets by hand.
+8. **Fixture is in Stand-Alone mode, not DMX mode.** If a Cameo ROOT PAR was last used for Auto/Sound/Static/Loop/Master-Slave mode, its front panel shows `Mode Auto` / `Mode Static` / etc. instead of `DMX Address`. It ignores incoming DMX in that state — go into the fixture's menu and select **DMX Mode** explicitly.
+9. **Master intensity or per-light max intensity is at (or near) 0%.** Both are hard multipliers applied in `DMXService` on top of the scene's own brightness — check the Panel 1 master slider and each fixture's "Max Intensity" cap (Panel 3 → Lights → pencil icon) if a light seems permanently dim or off regardless of scene.
+10. **Blackout is active, or no ambiance is selected.** Panel 1's Blackout button forces every channel to 0 regardless of scene; the Lights-tab virtual stage shows "Showing default colors" when no ambiance is active (default colors are just a preview — no DMX is sent until you activate an ambiance or start Test Mode).
+11. **Universe mismatch.** Art-Net universe defaults to `0` on both the app and most receivers; if either side was changed, they won't hear each other. Settings → Connection → Art-Net Universe.
+12. **On Web**, no DMX is ever sent (`MockClient` / `WebSocketDMXClient` relay through the desktop visualizer instead) — this is expected; test real fixture output from the Android/iOS dev build only (`npx expo run:android`, not Expo Go — see Getting Started below).
 
 ---
 
