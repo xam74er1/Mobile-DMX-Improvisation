@@ -1,0 +1,398 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "done": "Done",
+    "add": "Add",
+    "apply": "Apply",
+    "delete": "Delete",
+    "remove": "Remove",
+    "edit": "Edit",
+    "create": "Create",
+    "reset": "Reset",
+    "none": "None",
+    "light_one": "{{count}} light",
+    "light_other": "{{count}} lights"
+  },
+
+  "tabs": {
+    "control": "Control",
+    "editor": "Editor",
+    "settings": "Settings"
+  },
+
+  "colors": {
+    "Red": "Red",
+    "Green": "Green",
+    "Blue": "Blue",
+    "White": "White",
+    "Warm": "Warm",
+    "Pink": "Pink",
+    "Cyan": "Cyan",
+    "Purple": "Purple"
+  },
+
+  "effects": {
+    "flash": "Gunshot",
+    "strobe": "Strobe",
+    "beat": "Clap Beat",
+    "heartbeat": "Heartbeat",
+    "police": "Police",
+    "clap": "Clap",
+    "ramp_up": "Ramp Up",
+    "ramp_down": "Ramp Down",
+    "breathe": "Breathe",
+    "color_transition": "Color Fade"
+  },
+
+  "panel1": {
+    "fadingIn": "Fading In…",
+    "fadeIn": "Fade In",
+    "fadingOut": "Fading Out…",
+    "fadeOut": "Fade Out",
+    "fadeDurationHint": "Long-press either button to change fade duration ({{sec}}s)",
+    "noAmbiancesYet": "No ambiances yet",
+    "other": "OTHER",
+    "longPressForOptions": "Long press for options",
+    "createDialogTitle": "Create",
+    "newAmbiance": "New Ambiance",
+    "newCategory": "New Category",
+    "reorderCategories": "Reorder Categories",
+    "ambianceName": "Ambiance Name",
+    "ambianceNamePlaceholder": "e.g. Blue Wash, Party Mode…",
+    "categoryOptional": "Category (optional)",
+    "createAndEdit": "Create & Edit",
+    "fadeDurationTitle": "Fade Duration",
+    "fadeDurationHint2": "Applies to both Fade In and Fade Out.",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "e.g. Show, Rehearsal…",
+    "editColors": "Edit Colors",
+    "rename": "Rename",
+    "changeIcon": "Change Icon",
+    "moveToCategory": "Move to Category",
+    "duplicate": "Duplicate",
+    "renameAmbianceTitle": "Rename Ambiance",
+    "name": "Name",
+    "chooseIcon": "Choose Icon",
+    "noCategory": "No Category",
+    "renameCategoryTitle": "Rename Category",
+    "renameCategoryMenu": "Rename Category",
+    "addAmbianceHere": "Add Ambiance Here",
+    "reorderAllCategories": "Reorder All Categories",
+    "deleteCategory": "Delete Category",
+    "reorderCategoriesTitle": "Reorder Categories",
+    "reorderHint": "Hold  ≡  and drag to reorder",
+    "icon": {
+      "Sun": "Sun", "Bulb": "Bulb", "Star": "Star", "Flash": "Flash",
+      "Music": "Music", "Colors": "Colors", "Wave": "Wave", "Blur": "Blur",
+      "Fade": "Fade", "Flare": "Flare", "Drama": "Drama", "Lens": "Lens",
+      "Drop": "Drop", "Texture": "Texture", "Moon": "Moon", "Bright": "Bright",
+      "Spot": "Spot", "Ring": "Ring"
+    }
+  },
+
+  "panel2": {
+    "noAmbiancesYet": "No ambiances yet.",
+    "goCreateHint": "Go to the Control tab and tap + to create one.",
+    "editingAmbiance": "EDITING AMBIANCE",
+    "selectLight": "SELECT LIGHT",
+    "allLights": "All Lights",
+    "light": "Light",
+    "on": "ON",
+    "off": "OFF",
+    "wheel": "Wheel",
+    "sliders": "Sliders",
+    "quickColors": "QUICK COLORS",
+    "colorWheel": "COLOR WHEEL",
+    "dimmerW": "Dimmer (W)",
+    "amber": "Amber",
+    "amberToRgb": "Amber →RGB",
+    "amberToRgbMixHint": "→ RGB mix",
+    "uv": "UV",
+    "intensity": "INTENSITY",
+    "red": "Red",
+    "green": "Green",
+    "blue": "Blue",
+    "effectsInAmbiance": "EFFECTS IN THIS AMBIANCE",
+    "noEffectsHint": "No effects — tap Add to create one.\nExamples: Strobe Party, Heartbeat, Ocean Breathe have effects pre-configured.",
+    "allLightsLabel": "All lights",
+    "repeat": "Repeat",
+    "once": "Once",
+    "noLightsHint": "Add lights in Settings → Lights tab.",
+    "addEffect": "Add Effect",
+    "editEffect": "Edit Effect",
+    "effectType": "Effect Type",
+    "targetLights": "Target Lights",
+    "duration": "Duration: {{sec}} s",
+    "speed": "Speed: {{bpm}} BPM",
+    "maxIntensity": "Max Intensity: {{pct}}%",
+    "intensityOnlyNote": "Uses each light's own color — only intensity changes",
+    "fromColor": "From Color",
+    "toColor": "To Color",
+    "colorA": "Color A",
+    "colorB": "Color B",
+    "flashColor": "Flash Color"
+  },
+
+  "components": {
+    "blackout": {
+      "blackoutLabel": "BLACKOUT",
+      "allOnLabel": "ALL LIGHTS ON",
+      "tapToRestore": "Tap to restore",
+      "tapForBlackout": "Tap for blackout"
+    },
+    "connectionStatus": {
+      "sending": "Sending to receiver",
+      "sendFailed": "Send failed{{detail}}"
+    },
+    "effectsBar": {
+      "title": "EFFECTS",
+      "stop": "STOP",
+      "colorA": "A",
+      "colorB": "B",
+      "from": "From",
+      "to": "To",
+      "color": "Color",
+      "repeat": "Repeat",
+      "bpm": "BPM"
+    },
+    "intensitySlider": {
+      "defaultLabel": "Intensity"
+    },
+    "wheelColorPicker": {
+      "brightness": "Brightness"
+    },
+    "sceneStage": {
+      "audience": "▲  AUDIENCE  ▲",
+      "emptyHint": "Add lights below to see them here",
+      "dragHint": "Drag lights to reposition · Tap to configure"
+    },
+    "ambianceCard": {
+      "active": "ACTIVE"
+    }
+  },
+
+  "settings": {
+    "tabs": {
+      "connection": "Connection",
+      "lights": "Lights",
+      "data": "Backup",
+      "tutorial": "Tutorial"
+    },
+
+    "connection": {
+      "sectionTitle": "DMX RECEIVER",
+      "defaultsHint": "Eurolite FreeDMX AP defaults: IP 2.0.0.1 · Port 6454 · Universe 0",
+      "quickPreset": "Quick Preset",
+      "presetShow": "Show",
+      "presetLocal": "Local",
+      "ipLabel": "Receiver IP Address",
+      "portLabel": "UDP Port",
+      "universeLabel": "Art-Net Universe (0–255)",
+      "successMsg": "✓ Blink sent — lights should have flashed twice",
+      "errorMsg": "✗ Send failed — check IP and WiFi connection",
+      "testButton": "Test Connection (Blink)",
+      "discoveryTitle": "NETWORK DISCOVERY",
+      "discoveryHint": "Broadcasts an ArtPoll and lists any Art-Net receiver that answers on your WiFi network.",
+      "scanButton": "Scan Network",
+      "webNotSupported": "Not available on Web — use the Android/iOS app to scan.",
+      "scanning": "Scanning…",
+      "noNodesFound": "No nodes found yet — tap Scan while on the same WiFi as your receiver.",
+      "nodeFallbackName": "Art-Net Node"
+    },
+
+    "lights": {
+      "virtualScene": "VIRTUAL SCENE",
+      "stopTest": "Stop Test",
+      "testMode": "Test Mode",
+      "testBanner": "🎨 Test mode — each light shows a distinct color",
+      "showing": "Showing: ",
+      "showingDefault": "Showing default colors · activate an ambiance to preview",
+      "configuredLights": "CONFIGURED LIGHTS",
+      "bulkSetup": "Bulk Setup",
+      "channelRange": "ch{{range}} · {{mode}}",
+      "overlapWarning": " · ⚠ overlaps another fixture",
+      "emptyHint": "No lights yet. Tap Add to create your first fixture.",
+
+      "bulkSetupTitle": "Bulk Setup",
+      "bulkFormatLabel": "Set format for all lights",
+      "bulkFormatHint": "Use this when every fixture on the rig is the same model — e.g. all Cameo ROOT PAR 6 in 11ch mode.",
+      "bulkApplyButton": "Apply to All {{count}} Lights",
+      "bulkRenumberLabel": "Renumber DMX addresses",
+      "bulkRenumberHint": "Assigns each light below a start address in order, automatically stepping past each fixture's own channel count — e.g. an 11ch fixture at address 1 pushes the next light to address 12. No more manual math or overlaps.",
+      "startAddressLabel": "Start Address (1–512)",
+      "bulkRenumberButton": "Renumber {{count}} Lights",
+      "bulkConfirmTitle": "Set format for all lights?",
+      "bulkConfirmMessage": "All {{count}} configured light(s) will be switched to {{mode}}. Existing DMX addresses are kept — use Renumber below if channel ranges now overlap.",
+
+      "addLightTitle": "Add Light",
+      "nameLabel": "Name",
+      "addressLabel": "DMX Start Address (1–512)",
+      "channelModeLabel": "Channel Mode",
+      "configureLightTitle": "Configure Light",
+      "beamDirection": "Beam Direction: {{deg}}°  {{label}}",
+      "beamWidth": "Beam Width: {{label}}",
+      "maxIntensity": "Max Intensity: {{pct}}%",
+      "maxIntensityHint": "Hard cap — this light never goes brighter than this.",
+      "defaultColorLabel": "Default Color (shown when no ambiance active)",
+
+      "removeTitle": "Remove",
+      "removeMessage": "Remove \"{{name}}\"?",
+
+      "rotation": {
+        "audience": "↓ Audience",
+        "left": "← Left",
+        "right": "→ Right",
+        "back": "↑ Back"
+      },
+      "beamWidthLabel": {
+        "tight": "Tight spot ({{v}}×)",
+        "medium": "Medium ({{v}}×)",
+        "wide": "Wide ({{v}}×)",
+        "full": "Full wash ({{v}}×)"
+      },
+
+      "stageZones": "STAGE ZONES",
+      "stageZonesHint": "Rename zones to match your stage layout."
+    },
+
+    "data": {
+      "exportTitle": "EXPORT",
+      "customOnly": "Custom ambiances only",
+      "ambianceCount_one": "{{count}} ambiance",
+      "ambianceCount_other": "{{count}} ambiances",
+      "excludedHint": "Factory presets and default colors are excluded.",
+      "formatLabel": "Format",
+      "formatSls": "Myriad SLS",
+      "formatJson": "JSON",
+      "exportToFile": "Export to File",
+      "copyToClipboard": "Copy to Clipboard",
+      "noCustomAmbiances": "No custom ambiances yet — create some in Panel 1.",
+
+      "importTitle": "IMPORT",
+      "importHint": "Supports Myriad SLS (.SLS_AmbiancesDigest) and DMX Improvisator (.dmximp.json)",
+      "importMode": "Import mode",
+      "merge": "Merge",
+      "mergeHint": "Add new items, keep existing",
+      "replaceAll": "Replace all",
+      "replaceAllHint": "Overwrite everything",
+      "importFromFile": "Import from File",
+      "pasteFromClipboard": "Paste from Clipboard",
+
+      "replaceConfirmTitle": "Replace everything?",
+      "replaceConfirmMessage": "This will overwrite all your lights, ambiances and settings.",
+      "replace": "Replace",
+      "notValidFile": "Not a valid DMX Improvisator file.",
+      "loadedMessage": "Loaded {{ambCount}} ambiances, {{lightCount}} lights.",
+      "mergedMessage": "Merged {{ambCount}} ambiances, {{lightCount}} lights.",
+      "addLightsFirstError": "Add your lights in the Lights tab first so channels can be mapped correctly.",
+      "noAmbiancesInSls": "No ambiances found in this SLS file.",
+      "importedSlsMessage": "Imported {{count}} ambiances from SLS into category \"{{category}}\".",
+
+      "dangerZone": "DANGER ZONE",
+      "factoryReset": "Factory Reset",
+      "factoryResetHint": "Deletes all custom ambiances, categories, and configured lights, then restores the original 4 fixtures (11ch Dim16 mode) and factory presets. Network settings are kept.",
+      "factoryResetButton": "Reset to Factory Defaults",
+      "factoryResetConfirmMessage": "This will delete all {{ambCount}} custom ambiances and all {{lightCount}} configured lights, restoring the original 4 fixtures (11ch Dim16 mode) and factory presets. This cannot be undone.",
+      "restoredDefaults": "Restored factory defaults."
+    },
+
+    "tutorial": {
+      "title": "How to Use This App",
+      "language": "Language",
+      "intro": "A complete, illustrated guide to every screen. Come back here anytime — or tap the (?) button in any screen for a quick reminder of just that screen.",
+      "quickStart": {
+        "title": "Quick start checklist",
+        "items": [
+          "Join the same WiFi network as your DMX receiver",
+          "Settings → Connection: enter the receiver's IP and tap Test Connection",
+          "Settings → Lights: add each fixture (address + channel mode)",
+          "Control: tap a scene card to bring it up live"
+        ]
+      },
+      "sections": {
+        "control": {
+          "title": "Control panel — running the show",
+          "intro": "The tab you'll use live, once everything is configured.",
+          "points": [
+            "The big button at the top is Blackout: one tap instantly turns off every light, tap again to restore their last state.",
+            "Fade In / Fade Out ramp every light's intensity up or down smoothly. Long-press either button to set the fade duration (0.5s to 10s).",
+            "The slider below (sun icon) is the master intensity — a global brightness cap applied on top of each scene's own intensity.",
+            "The cards below are your scenes (\"ambiances\"). Tap to activate, tap again to deactivate.",
+            "Long-press a card to: edit its colors, rename it, change its icon, move it to another category, duplicate it, or delete it.",
+            "The + button bottom-right creates a new scene, a new category, or reorders categories.",
+            "At the bottom, the EFFECTS bar triggers a global effect (strobe, police, clap…) on every light, independent of the active scene."
+          ]
+        },
+        "editor": {
+          "title": "Editor panel — designing a scene",
+          "intro": "Here you define exactly what each scene does to each light.",
+          "points": [
+            "At the top, pick the scene to edit, then the light to edit (or turn on \"All Lights\" to edit every light at once).",
+            "Toggle ON/OFF to switch a specific light off within this scene without removing it.",
+            "Color wheel: drag inside the disc to pick hue and saturation, use the Brightness slider below, then adjust Dimmer (W), Amber and UV separately.",
+            "Sliders mode: same settings but as classic R/G/B/Dimmer/Amber/UV sliders — handy for precise values.",
+            "The Intensity slider at the bottom is specific to this light in this scene (different from the master intensity on the Control panel).",
+            "EFFECTS IN THIS AMBIANCE: attach an effect (strobe, heartbeat, color fade…) that only triggers while this specific scene is active. Choose the target lights, the speed (BPM) or duration, and the color(s) depending on the effect."
+          ]
+        },
+        "network": {
+          "title": "Network & Connection — picking the right WiFi",
+          "intro": "The #1 cause of \"nothing lights up\": the phone isn't on the same WiFi network as the DMX receiver. Read this before your first show.",
+          "points": [
+            "In a real show setup: the Eurolite FreeDMX AP receiver creates its own WiFi access point (it has no internet access — that's normal). Join THAT WiFi network from your phone — not your usual home/venue WiFi.",
+            "Once connected to its network, open Settings → Connection and try the \"Show\" preset (192.168.4.1). If lights don't respond, try the receiver's factory default IP, 2.0.0.1, or use Scan Network to detect it automatically.",
+            "\"Local\" preset (127.0.0.1): only useful when testing the app in a browser on the same computer as the desktop visualizer (dmx-visualizer). On a real phone, 127.0.0.1 refers to the phone itself — it will never reach real fixtures.",
+            "To rehearse without real fixtures: run the desktop visualizer on your computer, connect your phone to the same WiFi as that computer, then enter that computer's local network IP (shown by the visualizer, e.g. 192.168.1.42) — not the Local preset.",
+            "UDP Port: 6454 (standard Art-Net, almost never changes). Art-Net Universe: 0 by default on both sides — must match on the receiver and in the app.",
+            "Test Connection (Blink) sends two flashes to every configured light. If the app says \"sent\" but nothing blinks, the problem is on the receiver's side (wrong IP, wrong DMX mode, wrong address) — not the app.",
+            "Scan Network broadcasts an ArtPoll and lists every Art-Net receiver that answers on the current WiFi — handy for finding the right IP without knowing it in advance. Not available on Web, only on the Android/iOS app.",
+            "On Web (browser), no real DMX data is ever sent — that's expected; only the Android/iOS app drives real fixtures."
+          ]
+        },
+        "lights": {
+          "title": "Lights & DMX addressing",
+          "intro": "Every fixture must be declared here with the exact same address and mode as on its own display.",
+          "points": [
+            "Add each fixture with Add: name, DMX start address (1–512) and channel mode.",
+            "The channel mode chosen here must exactly match the DMX mode set on the physical fixture (MODE → DMX Mode menu on a Cameo ROOT PAR). Otherwise colors will be shifted or wrong.",
+            "Bulk Setup: if every fixture on the rig is the same model, apply the same channel mode to all of them in one tap, then auto-renumber their addresses — the app steps forward by the right number of channels per fixture, no manual math needed.",
+            "A ⚠ next to a fixture flags a channel overlap with another fixture — both will misbehave until it's fixed.",
+            "On the virtual stage, drag a fixture to reposition its icon, tap it to set its beam direction, beam width, max intensity, and default color.",
+            "Test Mode lights each fixture with a distinct color, handy for quickly checking each address maps to the right physical fixture."
+          ]
+        },
+        "backup": {
+          "title": "Backup — export, import, reset",
+          "intro": "Save your work before an important show, or move your scenes to another phone.",
+          "points": [
+            "Export: saves your custom ambiances (not the factory presets) as Myriad SLS or JSON, to a file or the clipboard.",
+            "Import: Merge mode adds new items without touching existing ones; Replace all mode wipes everything before loading the file — use with care.",
+            "Factory Reset (danger zone): deletes all your custom ambiances and lights, restores the original 4 fixtures and factory presets. Network settings are kept. Irreversible — export first if you want to keep a copy."
+          ]
+        },
+        "troubleshooting": {
+          "title": "Troubleshooting — nothing lights up?",
+          "intro": "Work through these in order.",
+          "points": [
+            "Check the colored dot near the top of the screen: green = UDP sending is working; red = send failed (usually wrong IP or wrong WiFi network).",
+            "Settings → Connection → Test Connection: if nothing blinks but the app says \"sent\", the issue is on the receiver's side, not the app's.",
+            "Settings → Connection → Scan Network: if your receiver doesn't show up, the phone isn't on the right WiFi.",
+            "Check that each light's DMX address in the app exactly matches what's set on the physical fixture's own display.",
+            "Check that the channel mode chosen in the app matches the DMX mode set on the fixture.",
+            "A ⚠ in the lights list flags overlapping addresses — use Bulk Setup → Renumber to fix it.",
+            "If the fixture was left in a stand-alone mode (Auto/Static/Loop), it ignores incoming DMX — switch it back to DMX Address mode on its own display.",
+            "Check the master intensity (Control panel) and each light's max intensity (Settings → Lights): at 0%, nothing will light up.",
+            "Blackout on the Control panel forces everything to 0 regardless of scene state — make sure it isn't active.",
+            "Art-Net Universe: must match on both sides (0 by default).",
+            "On Web, no real DMX output is possible — test on the Android/iOS app with real fixtures."
+          ]
+        }
+      },
+      "help": {
+        "buttonLabel": "Help",
+        "seeMore": "See the full Tutorial tab (Settings → Tutorial) for more."
+      }
+    }
+  }
+}

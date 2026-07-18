@@ -1,0 +1,398 @@
+{
+  "common": {
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "done": "Terminé",
+    "add": "Ajouter",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "remove": "Retirer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "reset": "Réinitialiser",
+    "none": "Aucun",
+    "light_one": "{{count}} lumière",
+    "light_other": "{{count}} lumières"
+  },
+
+  "tabs": {
+    "control": "Contrôle",
+    "editor": "Éditeur",
+    "settings": "Réglages"
+  },
+
+  "colors": {
+    "Red": "Rouge",
+    "Green": "Vert",
+    "Blue": "Bleu",
+    "White": "Blanc",
+    "Warm": "Chaud",
+    "Pink": "Rose",
+    "Cyan": "Cyan",
+    "Purple": "Violet"
+  },
+
+  "effects": {
+    "flash": "Coup de feu",
+    "strobe": "Stroboscope",
+    "beat": "Rythme",
+    "heartbeat": "Battement de cœur",
+    "police": "Police",
+    "clap": "Applaudissement",
+    "ramp_up": "Montée progressive",
+    "ramp_down": "Descente progressive",
+    "breathe": "Respiration",
+    "color_transition": "Fondu de couleur"
+  },
+
+  "panel1": {
+    "fadingIn": "Entrée en fondu…",
+    "fadeIn": "Fondu entrant",
+    "fadingOut": "Sortie en fondu…",
+    "fadeOut": "Fondu sortant",
+    "fadeDurationHint": "Appui long sur un bouton pour changer la durée du fondu ({{sec}}s)",
+    "noAmbiancesYet": "Aucune ambiance pour l'instant",
+    "other": "AUTRES",
+    "longPressForOptions": "Appui long pour les options",
+    "createDialogTitle": "Créer",
+    "newAmbiance": "Nouvelle ambiance",
+    "newCategory": "Nouvelle catégorie",
+    "reorderCategories": "Réorganiser les catégories",
+    "ambianceName": "Nom de l'ambiance",
+    "ambianceNamePlaceholder": "ex. Lavage bleu, Mode fête…",
+    "categoryOptional": "Catégorie (facultatif)",
+    "createAndEdit": "Créer et modifier",
+    "fadeDurationTitle": "Durée du fondu",
+    "fadeDurationHint2": "S'applique au fondu entrant et sortant.",
+    "categoryName": "Nom de la catégorie",
+    "categoryNamePlaceholder": "ex. Spectacle, Répétition…",
+    "editColors": "Modifier les couleurs",
+    "rename": "Renommer",
+    "changeIcon": "Changer d'icône",
+    "moveToCategory": "Déplacer vers une catégorie",
+    "duplicate": "Dupliquer",
+    "renameAmbianceTitle": "Renommer l'ambiance",
+    "name": "Nom",
+    "chooseIcon": "Choisir une icône",
+    "noCategory": "Aucune catégorie",
+    "renameCategoryTitle": "Renommer la catégorie",
+    "renameCategoryMenu": "Renommer la catégorie",
+    "addAmbianceHere": "Ajouter une ambiance ici",
+    "reorderAllCategories": "Réorganiser toutes les catégories",
+    "deleteCategory": "Supprimer la catégorie",
+    "reorderCategoriesTitle": "Réorganiser les catégories",
+    "reorderHint": "Maintenez  ≡  et faites glisser pour réorganiser",
+    "icon": {
+      "Sun": "Soleil", "Bulb": "Ampoule", "Star": "Étoile", "Flash": "Éclair",
+      "Music": "Musique", "Colors": "Couleurs", "Wave": "Vague", "Blur": "Flou",
+      "Fade": "Fondu", "Flare": "Halo", "Drama": "Ambiance", "Lens": "Lentille",
+      "Drop": "Goutte", "Texture": "Texture", "Moon": "Lune", "Bright": "Lumineux",
+      "Spot": "Spot", "Ring": "Anneau"
+    }
+  },
+
+  "panel2": {
+    "noAmbiancesYet": "Aucune ambiance pour l'instant.",
+    "goCreateHint": "Allez dans l'onglet Contrôle et appuyez sur + pour en créer une.",
+    "editingAmbiance": "AMBIANCE EN COURS D'ÉDITION",
+    "selectLight": "SÉLECTIONNER UNE LUMIÈRE",
+    "allLights": "Toutes les lumières",
+    "light": "Lumière",
+    "on": "ALLUMÉ",
+    "off": "ÉTEINT",
+    "wheel": "Roue",
+    "sliders": "Curseurs",
+    "quickColors": "COULEURS RAPIDES",
+    "colorWheel": "ROUE CHROMATIQUE",
+    "dimmerW": "Gradateur (W)",
+    "amber": "Ambre",
+    "amberToRgb": "Ambre →RVB",
+    "amberToRgbMixHint": "→ mélange RVB",
+    "uv": "UV",
+    "intensity": "INTENSITÉ",
+    "red": "Rouge",
+    "green": "Vert",
+    "blue": "Bleu",
+    "effectsInAmbiance": "EFFETS DE CETTE AMBIANCE",
+    "noEffectsHint": "Aucun effet — appuyez sur Ajouter pour en créer un.\nExemples : Strobe Party, Heartbeat, Ocean Breathe ont déjà des effets configurés.",
+    "allLightsLabel": "Toutes les lumières",
+    "repeat": "Répéter",
+    "once": "Une fois",
+    "noLightsHint": "Ajoutez des lumières dans Réglages → onglet Lumières.",
+    "addEffect": "Ajouter un effet",
+    "editEffect": "Modifier l'effet",
+    "effectType": "Type d'effet",
+    "targetLights": "Lumières ciblées",
+    "duration": "Durée : {{sec}} s",
+    "speed": "Vitesse : {{bpm}} BPM",
+    "maxIntensity": "Intensité max : {{pct}}%",
+    "intensityOnlyNote": "Utilise la couleur propre de chaque lumière — seule l'intensité change",
+    "fromColor": "Couleur de départ",
+    "toColor": "Couleur d'arrivée",
+    "colorA": "Couleur A",
+    "colorB": "Couleur B",
+    "flashColor": "Couleur du flash"
+  },
+
+  "components": {
+    "blackout": {
+      "blackoutLabel": "BLACKOUT",
+      "allOnLabel": "TOUT ALLUMÉ",
+      "tapToRestore": "Appuyez pour rétablir",
+      "tapForBlackout": "Appuyez pour un blackout"
+    },
+    "connectionStatus": {
+      "sending": "Envoi au récepteur",
+      "sendFailed": "Échec de l'envoi{{detail}}"
+    },
+    "effectsBar": {
+      "title": "EFFETS",
+      "stop": "STOP",
+      "colorA": "A",
+      "colorB": "B",
+      "from": "De",
+      "to": "À",
+      "color": "Couleur",
+      "repeat": "Répéter",
+      "bpm": "BPM"
+    },
+    "intensitySlider": {
+      "defaultLabel": "Intensité"
+    },
+    "wheelColorPicker": {
+      "brightness": "Luminosité"
+    },
+    "sceneStage": {
+      "audience": "▲  PUBLIC  ▲",
+      "emptyHint": "Ajoutez des lumières ci-dessous pour les voir ici",
+      "dragHint": "Faites glisser pour repositionner · Appuyez pour configurer"
+    },
+    "ambianceCard": {
+      "active": "ACTIVE"
+    }
+  },
+
+  "settings": {
+    "tabs": {
+      "connection": "Connexion",
+      "lights": "Lumières",
+      "data": "Sauvegarde",
+      "tutorial": "Tutoriel"
+    },
+
+    "connection": {
+      "sectionTitle": "RÉCEPTEUR DMX",
+      "defaultsHint": "Eurolite FreeDMX AP par défaut : IP 2.0.0.1 · Port 6454 · Universe 0",
+      "quickPreset": "Préréglage rapide",
+      "presetShow": "Spectacle",
+      "presetLocal": "Local",
+      "ipLabel": "Adresse IP du récepteur",
+      "portLabel": "Port UDP",
+      "universeLabel": "Universe Art-Net (0–255)",
+      "successMsg": "✓ Clignotement envoyé — les lumières auraient dû clignoter deux fois",
+      "errorMsg": "✗ Échec de l'envoi — vérifiez l'IP et la connexion WiFi",
+      "testButton": "Tester la connexion (clignotement)",
+      "discoveryTitle": "DÉCOUVERTE RÉSEAU",
+      "discoveryHint": "Diffuse un ArtPoll et liste tout récepteur Art-Net qui répond sur votre réseau WiFi.",
+      "scanButton": "Scanner le réseau",
+      "webNotSupported": "Non disponible sur le Web — utilisez l'app Android/iOS pour scanner.",
+      "scanning": "Recherche en cours…",
+      "noNodesFound": "Aucun appareil trouvé pour l'instant — appuyez sur Scanner en étant sur le même WiFi que votre récepteur.",
+      "nodeFallbackName": "Nœud Art-Net"
+    },
+
+    "lights": {
+      "virtualScene": "SCÈNE VIRTUELLE",
+      "stopTest": "Arrêter le test",
+      "testMode": "Mode test",
+      "testBanner": "🎨 Mode test — chaque lumière affiche une couleur distincte",
+      "showing": "Affiché : ",
+      "showingDefault": "Couleurs par défaut affichées · activez une ambiance pour prévisualiser",
+      "configuredLights": "LUMIÈRES CONFIGURÉES",
+      "bulkSetup": "Configuration groupée",
+      "channelRange": "canal {{range}} · {{mode}}",
+      "overlapWarning": " · ⚠ chevauche un autre projecteur",
+      "emptyHint": "Aucune lumière pour l'instant. Appuyez sur Ajouter pour créer votre premier projecteur.",
+
+      "bulkSetupTitle": "Configuration groupée",
+      "bulkFormatLabel": "Définir le format pour toutes les lumières",
+      "bulkFormatHint": "À utiliser lorsque tous les projecteurs du parc sont le même modèle — ex. tous des Cameo ROOT PAR 6 en mode 11ch.",
+      "bulkApplyButton": "Appliquer aux {{count}} lumières",
+      "bulkRenumberLabel": "Renuméroter les adresses DMX",
+      "bulkRenumberHint": "Attribue à chaque lumière ci-dessous une adresse de départ dans l'ordre, en avançant automatiquement du nombre de canaux propre à chaque projecteur — ex. un projecteur 11ch à l'adresse 1 pousse le suivant à l'adresse 12. Plus besoin de calcul manuel ni de chevauchement.",
+      "startAddressLabel": "Adresse de départ (1–512)",
+      "bulkRenumberButton": "Renuméroter {{count}} lumières",
+      "bulkConfirmTitle": "Définir le format pour toutes les lumières ?",
+      "bulkConfirmMessage": "Les {{count}} lumière(s) configurée(s) passeront en {{mode}}. Les adresses DMX existantes sont conservées — utilisez Renuméroter ci-dessous si les plages de canaux se chevauchent désormais.",
+
+      "addLightTitle": "Ajouter une lumière",
+      "nameLabel": "Nom",
+      "addressLabel": "Adresse de départ DMX (1–512)",
+      "channelModeLabel": "Mode de canal",
+      "configureLightTitle": "Configurer la lumière",
+      "beamDirection": "Direction du faisceau : {{deg}}°  {{label}}",
+      "beamWidth": "Largeur du faisceau : {{label}}",
+      "maxIntensity": "Intensité max : {{pct}}%",
+      "maxIntensityHint": "Plafond strict — cette lumière ne dépassera jamais cette luminosité.",
+      "defaultColorLabel": "Couleur par défaut (affichée sans ambiance active)",
+
+      "removeTitle": "Retirer",
+      "removeMessage": "Retirer « {{name}} » ?",
+
+      "rotation": {
+        "audience": "↓ Public",
+        "left": "← Gauche",
+        "right": "→ Droite",
+        "back": "↑ Arrière"
+      },
+      "beamWidthLabel": {
+        "tight": "Spot serré ({{v}}×)",
+        "medium": "Moyen ({{v}}×)",
+        "wide": "Large ({{v}}×)",
+        "full": "Lavage total ({{v}}×)"
+      },
+
+      "stageZones": "ZONES DE SCÈNE",
+      "stageZonesHint": "Renommez les zones pour qu'elles correspondent à votre plan de scène."
+    },
+
+    "data": {
+      "exportTitle": "EXPORTER",
+      "customOnly": "Ambiances personnalisées uniquement",
+      "ambianceCount_one": "{{count}} ambiance",
+      "ambianceCount_other": "{{count}} ambiances",
+      "excludedHint": "Les préréglages d'usine et couleurs par défaut sont exclus.",
+      "formatLabel": "Format",
+      "formatSls": "Myriad SLS",
+      "formatJson": "JSON",
+      "exportToFile": "Exporter vers un fichier",
+      "copyToClipboard": "Copier dans le presse-papiers",
+      "noCustomAmbiances": "Aucune ambiance personnalisée pour l'instant — créez-en dans le Panneau 1.",
+
+      "importTitle": "IMPORTER",
+      "importHint": "Prend en charge Myriad SLS (.SLS_AmbiancesDigest) et DMX Improvisator (.dmximp.json)",
+      "importMode": "Mode d'import",
+      "merge": "Fusionner",
+      "mergeHint": "Ajouter les nouveaux éléments, garder l'existant",
+      "replaceAll": "Tout remplacer",
+      "replaceAllHint": "Écraser tout",
+      "importFromFile": "Importer depuis un fichier",
+      "pasteFromClipboard": "Coller depuis le presse-papiers",
+
+      "replaceConfirmTitle": "Tout remplacer ?",
+      "replaceConfirmMessage": "Ceci écrasera toutes vos lumières, ambiances et réglages.",
+      "replace": "Remplacer",
+      "notValidFile": "Ce n'est pas un fichier DMX Improvisator valide.",
+      "loadedMessage": "{{ambCount}} ambiances chargées, {{lightCount}} lumières.",
+      "mergedMessage": "{{ambCount}} ambiances fusionnées, {{lightCount}} lumières.",
+      "addLightsFirstError": "Ajoutez d'abord vos lumières dans l'onglet Lumières pour que les canaux puissent être associés correctement.",
+      "noAmbiancesInSls": "Aucune ambiance trouvée dans ce fichier SLS.",
+      "importedSlsMessage": "{{count}} ambiances importées depuis SLS dans la catégorie « {{category}} ».",
+
+      "dangerZone": "ZONE DE DANGER",
+      "factoryReset": "Réinitialisation d'usine",
+      "factoryResetHint": "Supprime toutes les ambiances personnalisées, catégories et lumières configurées, puis restaure les 4 projecteurs d'origine (mode 11ch Dim16) et les préréglages d'usine. Les réglages réseau sont conservés.",
+      "factoryResetButton": "Réinitialiser aux valeurs d'usine",
+      "factoryResetConfirmMessage": "Ceci supprimera les {{ambCount}} ambiances personnalisées et les {{lightCount}} lumières configurées, et restaurera les 4 projecteurs d'origine (mode 11ch Dim16) et les préréglages d'usine. Cette action est irréversible.",
+      "restoredDefaults": "Valeurs d'usine restaurées."
+    },
+
+    "tutorial": {
+      "title": "Comment utiliser l'application",
+      "language": "Langue",
+      "intro": "Un guide complet et illustré de chaque écran. Revenez ici à tout moment — ou appuyez sur le bouton (?) présent dans chaque écran pour un rappel rapide de cet écran uniquement.",
+      "quickStart": {
+        "title": "Liste de démarrage rapide",
+        "items": [
+          "Rejoignez le même réseau WiFi que votre récepteur DMX",
+          "Réglages → Connexion : entrez l'IP du récepteur et appuyez sur Tester la connexion",
+          "Réglages → Lumières : ajoutez chaque projecteur (adresse + mode de canal)",
+          "Contrôle : appuyez sur une carte de scène pour l'activer en direct"
+        ]
+      },
+      "sections": {
+        "control": {
+          "title": "Panneau Contrôle — piloter le show",
+          "intro": "L'onglet que vous utiliserez en direct, une fois tout configuré.",
+          "points": [
+            "Le grand bouton en haut est le Blackout : un appui éteint instantanément toutes les lumières, un autre appui les rallume dans leur dernier état.",
+            "Fondu entrant / Fondu sortant font monter ou descendre progressivement l'intensité de toutes les lumières. Appui long sur l'un des deux boutons pour régler la durée du fondu (0,5 s à 10 s).",
+            "Le curseur en dessous (icône soleil) est l'intensité maîtresse : un plafond de luminosité global appliqué par-dessus l'intensité propre de chaque scène.",
+            "Les cartes ci-dessous sont vos scènes (« ambiances »). Appuyez pour l'activer, appuyez à nouveau pour la désactiver.",
+            "Appui long sur une carte pour : modifier ses couleurs, la renommer, changer son icône, la déplacer vers une autre catégorie, la dupliquer ou la supprimer.",
+            "Le bouton + en bas à droite crée une nouvelle scène, une nouvelle catégorie, ou réorganise les catégories.",
+            "En bas de l'écran, la barre EFFETS permet de déclencher un effet global (stroboscope, police, applaudissement…) sur toutes les lumières, indépendamment de la scène active."
+          ]
+        },
+        "editor": {
+          "title": "Panneau Éditeur — créer une scène",
+          "intro": "Ici vous définissez précisément ce que chaque scène fait à chaque lumière.",
+          "points": [
+            "En haut, choisissez la scène à modifier, puis la lumière à éditer (ou activez « Toutes les lumières » pour éditer toutes les lumières en même temps).",
+            "Basculez ON/OFF pour éteindre une lumière spécifique dans cette scène sans la retirer.",
+            "Roue chromatique : glissez dans le disque pour choisir teinte et saturation, utilisez le curseur Luminosité en dessous, puis réglez Dimmer (W), Ambre et UV séparément.",
+            "Mode Curseurs : mêmes réglages mais avec des curseurs R/V/B/Dimmer/Ambre/UV classiques — pratique pour des valeurs précises.",
+            "Le curseur Intensité en bas est propre à cette lumière dans cette scène (différent de l'intensité maîtresse du Panneau Contrôle).",
+            "EFFETS DE CETTE AMBIANCE : attachez un effet (stroboscope, battement de cœur, fondu de couleur…) qui ne se déclenche que lorsque cette scène précise est active. Choisissez les lumières ciblées, la vitesse (BPM) ou la durée, et la ou les couleurs selon l'effet."
+          ]
+        },
+        "network": {
+          "title": "Réseau & Connexion — bien choisir son WiFi",
+          "intro": "La cause n°1 de « rien ne s'allume » : le téléphone n'est pas sur le même réseau WiFi que le récepteur DMX. Lisez cette section avant votre premier show.",
+          "points": [
+            "En configuration spectacle réelle : le récepteur Eurolite FreeDMX AP crée son propre point d'accès WiFi (il n'a pas accès à Internet, c'est normal). Rejoignez CE réseau WiFi depuis votre téléphone — pas votre WiFi habituel de salle ou de maison.",
+            "Une fois connecté à son réseau, ouvrez Réglages → Connexion et essayez le préréglage « Spectacle » (192.168.4.1). Si les lumières ne répondent pas, essayez l'adresse IP par défaut du récepteur, 2.0.0.1, ou utilisez Scanner le réseau pour la détecter automatiquement.",
+            "Préréglage « Local » (127.0.0.1) : uniquement utile quand vous testez l'app dans un navigateur sur le même ordinateur que le visualiseur de bureau (dmx-visualizer). Sur un vrai téléphone, 127.0.0.1 désigne le téléphone lui-même — ça ne fonctionnera jamais avec de vrais projecteurs.",
+            "Pour répéter sans les vrais projecteurs : lancez le visualiseur de bureau sur votre ordinateur, connectez votre téléphone au même WiFi que cet ordinateur, puis entrez l'adresse IP locale de l'ordinateur (affichée par le visualiseur, ex. 192.168.1.42) — pas le préréglage Local.",
+            "Port UDP : 6454 (standard Art-Net, ne changez presque jamais). Universe Art-Net : 0 par défaut des deux côtés — doit être identique sur le récepteur et dans l'app.",
+            "Tester la connexion (clignotement) envoie deux flashs à toutes les lumières configurées. Si l'app dit « envoyé » mais que rien ne clignote, le problème est côté récepteur (mauvaise IP, mauvais mode DMX, mauvaise adresse) — pas côté app.",
+            "Scanner le réseau diffuse une requête ArtPoll et liste tout récepteur Art-Net qui répond sur le WiFi actuel — pratique pour trouver la bonne IP sans la connaître à l'avance. Non disponible sur le Web, seulement sur l'app Android/iOS.",
+            "Sur le Web (navigateur), aucune donnée DMX réelle n'est envoyée — c'est normal, seule l'app Android/iOS pilote de vrais projecteurs."
+          ]
+        },
+        "lights": {
+          "title": "Lumières & adressage DMX",
+          "intro": "Chaque projecteur doit être déclaré ici avec la même adresse et le même mode que sur son propre écran.",
+          "points": [
+            "Ajoutez chaque projecteur avec Ajouter : nom, adresse de départ DMX (1–512) et mode de canal.",
+            "Le mode de canal choisi ici doit correspondre exactement au mode DMX réglé sur l'appareil physique (menu MODE → DMX Mode sur un Cameo ROOT PAR). Sinon les couleurs seront décalées ou incorrectes.",
+            "Configuration groupée (Bulk Setup) : si tous vos projecteurs sont le même modèle, appliquez le même mode de canal à tous en un clic, puis renumérotez leurs adresses automatiquement — l'app avance de la bonne quantité de canaux pour chaque projecteur, plus besoin de calcul manuel.",
+            "Un ⚠ à côté d'un projecteur signale un chevauchement de canaux avec un autre — les deux vont mal se comporter tant que ce n'est pas corrigé.",
+            "Dans la scène virtuelle, glissez un projecteur pour repositionner son icône, appuyez dessus pour régler sa direction de faisceau, sa largeur de faisceau, son intensité maximale et sa couleur par défaut.",
+            "Mode Test allume chaque projecteur avec une couleur distincte, pratique pour vérifier rapidement que chaque adresse correspond bien au bon projecteur physique."
+          ]
+        },
+        "backup": {
+          "title": "Sauvegarde — exporter, importer, réinitialiser",
+          "intro": "Sauvegardez votre travail avant un show important, ou transférez vos scènes vers un autre téléphone.",
+          "points": [
+            "Exporter : sauvegarde vos ambiances personnalisées (pas les préréglages d'usine) au format Myriad SLS ou JSON, vers un fichier ou le presse-papiers.",
+            "Importer : le mode Fusionner ajoute les nouveaux éléments sans toucher à l'existant ; le mode Tout remplacer efface tout avant de charger le fichier — à utiliser avec précaution.",
+            "Réinitialisation d'usine (zone de danger) : supprime toutes vos ambiances et lumières personnalisées, restaure les 4 projecteurs d'origine et les préréglages d'usine. Les réglages réseau sont conservés. Action irréversible — exportez d'abord si vous voulez garder une copie."
+          ]
+        },
+        "troubleshooting": {
+          "title": "Dépannage — rien ne s'allume ?",
+          "intro": "Passez ces points en revue dans l'ordre.",
+          "points": [
+            "Vérifiez le point coloré près du haut de l'écran : vert = l'envoi UDP fonctionne ; rouge = échec d'envoi (généralement mauvaise IP ou mauvais réseau WiFi).",
+            "Réglages → Connexion → Tester la connexion : si rien ne clignote mais que l'app dit « envoyé », le souci est côté récepteur, pas côté app.",
+            "Réglages → Connexion → Scanner le réseau : si votre récepteur n'apparaît pas, le téléphone n'est pas sur le bon WiFi.",
+            "Vérifiez que l'adresse DMX de chaque lumière dans l'app correspond exactement à celle réglée sur l'écran du projecteur physique.",
+            "Vérifiez que le mode de canal choisi dans l'app correspond au mode DMX réglé sur le projecteur.",
+            "Un ⚠ dans la liste des lumières signale des adresses qui se chevauchent — utilisez Configuration groupée → Renuméroter pour corriger.",
+            "Si le projecteur était laissé en mode autonome (Auto/Static/Loop), il ignore le DMX entrant — repassez-le en mode DMX Address sur son propre écran.",
+            "Vérifiez l'intensité maîtresse (Panneau Contrôle) et l'intensité max de chaque lumière (Réglages → Lumières) : à 0 %, rien ne s'allumera.",
+            "Le Blackout du Panneau Contrôle force tout à 0 quel que soit l'état de la scène — vérifiez qu'il n'est pas actif.",
+            "Universe Art-Net : doit être identique des deux côtés (0 par défaut).",
+            "Sur le Web, aucune sortie DMX réelle n'est possible — testez sur l'app Android/iOS avec de vrais projecteurs."
+          ]
+        }
+      },
+      "help": {
+        "buttonLabel": "Aide",
+        "seeMore": "Voir l'onglet Tutoriel complet (Réglages → Tutoriel) pour plus de détails."
+      }
+    }
+  }
+}
