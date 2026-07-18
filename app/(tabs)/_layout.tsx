@@ -1,8 +1,10 @@
 import React from 'react'
 import { Tabs } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 
 export default function TabLayout() {
+  const { t } = useTranslation()
   return (
     <Tabs
       screenOptions={{
@@ -18,7 +20,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Control',
+          title: t('tabs.control'),
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="lightbulb" size={size} color={color} />
           ),
@@ -27,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="editor"
         options={{
-          title: 'Editor',
+          title: t('tabs.editor'),
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="palette" size={size} color={color} />
           ),
@@ -36,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tabs.settings'),
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="settings" size={size} color={color} />
           ),

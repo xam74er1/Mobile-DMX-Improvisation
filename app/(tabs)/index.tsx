@@ -11,7 +11,9 @@ import Animated, {
 import type { SharedValue } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { useTranslation } from 'react-i18next'
 import { BlackoutButton } from '../../src/components/BlackoutButton'
+import { HelpButton } from '../../src/components/HelpButton'
 import { ConnectionStatusDot } from '../../src/components/ConnectionStatusDot'
 import { AmbianceCard } from '../../src/components/AmbianceCard'
 import { EffectsBar } from '../../src/components/EffectsBar'
@@ -53,6 +55,7 @@ const ROW_H = 56
 // Main screen
 // ─────────────────────────────────────────────────────────────
 export default function ControlScreen() {
+  const { t } = useTranslation()
   const router = useRouter()
   const tabBarHeight = useBottomTabBarHeight()
   const ambiances           = useAmbiancesStore((s) => s.ambiances)
@@ -155,6 +158,9 @@ export default function ControlScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <View style={styles.helpRow}>
+          <HelpButton section="control" />
+        </View>
         <BlackoutButton />
         <ConnectionStatusDot />
 
@@ -176,7 +182,7 @@ export default function ControlScreen() {
             }}>
             <MaterialIcons name="trending-up" size={18} color={fadeInActive ? '#fff' : '#ff6b35'} />
             <Text style={[styles.fadeBtnLabel, fadeInActive && { color: '#fff' }]}>
-              {fadeInActive ? 'Fading In…' : 'Fade In'}
+              {fadeInActive ? t('panel1.fadingIn') : t('panel1.fadeIn')}
             </Text>
           </Pressable>
           <Pressable
@@ -194,11 +200,11 @@ export default function ControlScreen() {
             }}>
             <MaterialIcons name="trending-down" size={18} color={fadeOutActive ? '#fff' : '#aaa'} />
             <Text style={[styles.fadeBtnLabel, { color: fadeOutActive ? '#fff' : '#aaa' }]}>
-              {fadeOutActive ? 'Fading Out…' : 'Fade Out'}
+              {fadeOutActive ? t('panel1.fadingOut') : t('panel1.fadeOut')}
             </Text>
           </Pressable>
         </View>
-        <Text style={styles.fadeDurationHint}>Long-press either button to change fade duration ({(fadeDurationMs / 1000).toFixed(1)}s)</Text>
+        <Text style={styles.fadeDurationHint}>{t('panel1.fadeDurationHint', { sec: (fadeDurationMs / 1000).toFixed(1) })}</Text>
 
         {/* ── Master intensity (global brightness cap) ── */}
         <View style={styles.masterRow}>
@@ -231,7 +237,7 @@ export default function ControlScreen() {
               onLongPress={() => setCatMenu(category.id)}
             />
             {items.length === 0 ? (
-              <Text style={styles.emptyCategory}>No ambiances yet</Text>
+              <Text style={styles.emptyCategory}>{t('panel1.noAmbiancesYet')}</Text>
             ) : (
               <View style={styles.grid}>
                 {items.map((amb) => (
@@ -253,7 +259,7 @@ export default function ControlScreen() {
         {uncategorized.length > 0 && (
           <View>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>OTHER</Text>
+              <Text style={styles.sectionTitle}>{t('panel1.other')}</Text>
             </View>
             <View style={styles.grid}>
               {uncategorized.map((amb) => (
@@ -286,7 +292,7 @@ export default function ControlScreen() {
       {/* ── FAB create menu ── */}
       <Portal>
         <Dialog visible={fabMenuVisible} onDismiss={() => setFabMenuVisible(false)}>
-          <Dialog.Title>Create</Dialog.Title>
+          <Dialog.Title>{t('panel1.createDialogTitle')}</Dialog.Title>
           <Dialog.Content>
             <View style={styles.menuOptions}>
               <Button
@@ -298,7 +304,7 @@ export default function ControlScreen() {
                   setNameInput('')
                   setNewDialog(true)
                 }}
-              >New Ambiance</Button>
+              >{t('panel1.newAmbiance')}</Button>
               <Button
                 icon="folder-plus-outline"
                 mode="text"
@@ -307,7 +313,7 @@ export default function ControlScreen() {
                   setCatNameInput('')
                   setCatDialog(true)
                 }}
-              >New Category</Button>
+              >{t('panel1.newCategory')}</Button>
               <Button
                 icon="sort"
                 mode="text"
@@ -315,11 +321,11 @@ export default function ControlScreen() {
                   setFabMenuVisible(false)
                   setReorderVisible(true)
                 }}
-              >Reorder Categories</Button>
+              >{t('panel1.reorderCategories')}</Button>
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setFabMenuVisible(false)}>Cancel</Button>
+            <Button onPress={() => setFabMenuVisible(false)}>{t('common.cancel')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -327,24 +333,24 @@ export default function ControlScreen() {
       {/* ── New ambiance ── */}
       <Portal>
         <Dialog visible={newDialog} onDismiss={() => setNewDialog(false)}>
-          <Dialog.Title>New Ambiance</Dialog.Title>
+          <Dialog.Title>{t('panel1.newAmbiance')}</Dialog.Title>
           <Dialog.Content style={{ gap: 12 }}>
             <TextInput
-              label="Ambiance Name"
+              label={t('panel1.ambianceName')}
               value={nameInput}
               onChangeText={setNameInput}
               mode="outlined"
               autoFocus
-              placeholder="e.g. Blue Wash, Party Mode…"
+              placeholder={t('panel1.ambianceNamePlaceholder')}
             />
             <View>
-              <Text style={styles.pickerLabel}>Category (optional)</Text>
+              <Text style={styles.pickerLabel}>{t('panel1.categoryOptional')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catChips}>
                 <TouchableOpacity
                   style={[styles.catChip, !newCatId && styles.catChipActive]}
                   onPress={() => setNewCatId(undefined)}
                 >
-                  <Text style={[styles.catChipText, !newCatId && styles.catChipTextActive]}>None</Text>
+                  <Text style={[styles.catChipText, !newCatId && styles.catChipTextActive]}>{t('common.none')}</Text>
                 </TouchableOpacity>
                 {categories.map((c) => (
                   <TouchableOpacity
@@ -361,8 +367,8 @@ export default function ControlScreen() {
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setNewDialog(false)}>Cancel</Button>
-            <Button onPress={confirmCreate} disabled={!nameInput.trim()}>Create & Edit</Button>
+            <Button onPress={() => setNewDialog(false)}>{t('common.cancel')}</Button>
+            <Button onPress={confirmCreate} disabled={!nameInput.trim()}>{t('panel1.createAndEdit')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -370,7 +376,7 @@ export default function ControlScreen() {
       {/* ── Fade duration picker (long-press Fade In/Out) ── */}
       <Portal>
         <Dialog visible={durationDialog} onDismiss={() => setDurationDialog(false)}>
-          <Dialog.Title>Fade Duration</Dialog.Title>
+          <Dialog.Title>{t('panel1.fadeDurationTitle')}</Dialog.Title>
           <Dialog.Content>
             <Text style={styles.pickerLabel}>{(fadeDurationMs / 1000).toFixed(1)}s</Text>
             <Slider
@@ -384,10 +390,10 @@ export default function ControlScreen() {
               thumbTintColor="#ff6b35"
               style={{ height: 36, marginTop: 4 }}
             />
-            <Text style={styles.hint}>Applies to both Fade In and Fade Out.</Text>
+            <Text style={styles.hint}>{t('panel1.fadeDurationHint2')}</Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDurationDialog(false)}>Done</Button>
+            <Button onPress={() => setDurationDialog(false)}>{t('common.done')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -395,20 +401,20 @@ export default function ControlScreen() {
       {/* ── New category ── */}
       <Portal>
         <Dialog visible={catDialog} onDismiss={() => setCatDialog(false)}>
-          <Dialog.Title>New Category</Dialog.Title>
+          <Dialog.Title>{t('panel1.newCategory')}</Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Category Name"
+              label={t('panel1.categoryName')}
               value={catNameInput}
               onChangeText={setCatNameInput}
               mode="outlined"
               autoFocus
-              placeholder="e.g. Show, Rehearsal…"
+              placeholder={t('panel1.categoryNamePlaceholder')}
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCatDialog(false)}>Cancel</Button>
-            <Button onPress={confirmCreateCategory} disabled={!catNameInput.trim()}>Create</Button>
+            <Button onPress={() => setCatDialog(false)}>{t('common.cancel')}</Button>
+            <Button onPress={confirmCreateCategory} disabled={!catNameInput.trim()}>{t('common.create')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -424,29 +430,29 @@ export default function ControlScreen() {
                   router.push({ pathname: '/(tabs)/editor', params: { ambianceId: longPressMenu! } })
                   setLongPressMenu(null)
                 }}
-              >Edit Colors</Button>
+              >{t('panel1.editColors')}</Button>
               <Button icon="rename-box" mode="text"
                 onPress={() => {
                   setRenameDialog({ id: longPressMenu!, name: menuAmbiance?.name ?? '' })
                   setLongPressMenu(null)
                 }}
-              >Rename</Button>
+              >{t('panel1.rename')}</Button>
               <Button icon="image" mode="text"
                 onPress={() => { setIconPickerFor(longPressMenu!); setLongPressMenu(null) }}
-              >Change Icon</Button>
+              >{t('panel1.changeIcon')}</Button>
               <Button icon="folder-move-outline" mode="text"
                 onPress={() => { setCatPickerFor(longPressMenu!); setLongPressMenu(null) }}
-              >Move to Category</Button>
+              >{t('panel1.moveToCategory')}</Button>
               <Button icon="content-copy" mode="text"
                 onPress={() => { duplicateAmbiance(longPressMenu!); setLongPressMenu(null) }}
-              >Duplicate</Button>
+              >{t('panel1.duplicate')}</Button>
               <Button icon="delete" mode="text" textColor="#e74c3c"
                 onPress={() => { removeAmbiance(longPressMenu!); setLongPressMenu(null) }}
-              >Delete</Button>
+              >{t('common.delete')}</Button>
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setLongPressMenu(null)}>Cancel</Button>
+            <Button onPress={() => setLongPressMenu(null)}>{t('common.cancel')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -454,23 +460,23 @@ export default function ControlScreen() {
       {/* ── Rename ambiance ── */}
       <Portal>
         <Dialog visible={!!renameDialog} onDismiss={() => setRenameDialog(null)}>
-          <Dialog.Title>Rename Ambiance</Dialog.Title>
+          <Dialog.Title>{t('panel1.renameAmbianceTitle')}</Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Name"
+              label={t('panel1.name')}
               value={renameDialog?.name ?? ''}
-              onChangeText={(t) => setRenameDialog((d) => d ? { ...d, name: t } : null)}
+              onChangeText={(v) => setRenameDialog((d) => d ? { ...d, name: v } : null)}
               mode="outlined"
               autoFocus
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setRenameDialog(null)}>Cancel</Button>
+            <Button onPress={() => setRenameDialog(null)}>{t('common.cancel')}</Button>
             <Button
               onPress={() => {
                 if (renameDialog) { renameAmbiance(renameDialog.id, renameDialog.name); setRenameDialog(null) }
               }}
-            >Save</Button>
+            >{t('common.save')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -478,7 +484,7 @@ export default function ControlScreen() {
       {/* ── Icon picker ── */}
       <Portal>
         <Dialog visible={!!iconPickerFor} onDismiss={() => setIconPickerFor(null)}>
-          <Dialog.Title>Choose Icon</Dialog.Title>
+          <Dialog.Title>{t('panel1.chooseIcon')}</Dialog.Title>
           <Dialog.Content>
             <View style={styles.iconGrid}>
               <TouchableOpacity
@@ -486,7 +492,7 @@ export default function ControlScreen() {
                 onPress={() => { if (iconPickerFor) setAmbianceIcon(iconPickerFor, null); setIconPickerFor(null) }}
               >
                 <MaterialIcons name="block" size={28} color="#555" />
-                <Text style={styles.iconLabel}>None</Text>
+                <Text style={styles.iconLabel}>{t('common.none')}</Text>
               </TouchableOpacity>
               {AMBIANCE_ICONS.map((ic) => (
                 <TouchableOpacity
@@ -495,13 +501,13 @@ export default function ControlScreen() {
                   onPress={() => { if (iconPickerFor) setAmbianceIcon(iconPickerFor, ic.name); setIconPickerFor(null) }}
                 >
                   <MaterialIcons name={ic.name as any} size={28} color="#ccc" />
-                  <Text style={styles.iconLabel}>{ic.label}</Text>
+                  <Text style={styles.iconLabel}>{t(`panel1.icon.${ic.label}`)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setIconPickerFor(null)}>Cancel</Button>
+            <Button onPress={() => setIconPickerFor(null)}>{t('common.cancel')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -509,12 +515,12 @@ export default function ControlScreen() {
       {/* ── Move to category picker ── */}
       <Portal>
         <Dialog visible={!!catPickerFor} onDismiss={() => setCatPickerFor(null)}>
-          <Dialog.Title>Move to Category</Dialog.Title>
+          <Dialog.Title>{t('panel1.moveToCategory')}</Dialog.Title>
           <Dialog.Content>
             <View style={styles.menuOptions}>
               <Button mode="text"
                 onPress={() => { if (catPickerFor) setAmbianceCategory(catPickerFor, null); setCatPickerFor(null) }}
-              >No Category</Button>
+              >{t('panel1.noCategory')}</Button>
               {categories.map((c) => (
                 <Button key={c.id} mode="text"
                   onPress={() => { if (catPickerFor) setAmbianceCategory(catPickerFor, c.id); setCatPickerFor(null) }}
@@ -523,7 +529,7 @@ export default function ControlScreen() {
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCatPickerFor(null)}>Cancel</Button>
+            <Button onPress={() => setCatPickerFor(null)}>{t('common.cancel')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -540,7 +546,7 @@ export default function ControlScreen() {
                   if (cat) setRenameCatDialog({ id: cat.id, name: cat.name })
                   setCatMenu(null)
                 }}
-              >Rename Category</Button>
+              >{t('panel1.renameCategoryMenu')}</Button>
               <Button icon="lightbulb-on-outline" mode="text"
                 onPress={() => {
                   setNewCatId(catMenu ?? undefined)
@@ -548,17 +554,17 @@ export default function ControlScreen() {
                   setCatMenu(null)
                   setNewDialog(true)
                 }}
-              >Add Ambiance Here</Button>
+              >{t('panel1.addAmbianceHere')}</Button>
               <Button icon="sort" mode="text"
                 onPress={() => { setCatMenu(null); setReorderVisible(true) }}
-              >Reorder All Categories</Button>
+              >{t('panel1.reorderAllCategories')}</Button>
               <Button icon="delete" mode="text" textColor="#e74c3c"
                 onPress={() => { if (catMenu) removeCategory(catMenu); setCatMenu(null) }}
-              >Delete Category</Button>
+              >{t('panel1.deleteCategory')}</Button>
             </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCatMenu(null)}>Cancel</Button>
+            <Button onPress={() => setCatMenu(null)}>{t('common.cancel')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -566,18 +572,18 @@ export default function ControlScreen() {
       {/* ── Rename category ── */}
       <Portal>
         <Dialog visible={!!renameCatDialog} onDismiss={() => setRenameCatDialog(null)}>
-          <Dialog.Title>Rename Category</Dialog.Title>
+          <Dialog.Title>{t('panel1.renameCategoryTitle')}</Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Name"
+              label={t('panel1.name')}
               value={renameCatDialog?.name ?? ''}
-              onChangeText={(t) => setRenameCatDialog((d) => d ? { ...d, name: t } : null)}
+              onChangeText={(v) => setRenameCatDialog((d) => d ? { ...d, name: v } : null)}
               mode="outlined"
               autoFocus
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setRenameCatDialog(null)}>Cancel</Button>
+            <Button onPress={() => setRenameCatDialog(null)}>{t('common.cancel')}</Button>
             <Button
               onPress={() => {
                 if (renameCatDialog) {
@@ -585,7 +591,7 @@ export default function ControlScreen() {
                   setRenameCatDialog(null)
                 }
               }}
-            >Save</Button>
+            >{t('common.save')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -609,10 +615,11 @@ export default function ControlScreen() {
 function CategoryHeader({
   category, onLongPress,
 }: { category: AmbianceCategory; onLongPress: () => void }) {
+  const { t } = useTranslation()
   return (
     <TouchableOpacity style={styles.sectionHeader} onLongPress={onLongPress} activeOpacity={0.7}>
       <Text style={styles.sectionTitle}>{category.name.toUpperCase()}</Text>
-      <Text style={styles.sectionHint}>Long press for options</Text>
+      <Text style={styles.sectionHint}>{t('panel1.longPressForOptions')}</Text>
     </TouchableOpacity>
   )
 }
@@ -628,6 +635,7 @@ function ReorderCategoriesModal({
   onCommit: (orderedIds: string[]) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [localOrder, setLocalOrder] = useState<AmbianceCategory[]>([])
   const dragFromIndex = useSharedValue(-1)
   const dragY        = useSharedValue(0)
@@ -664,8 +672,8 @@ function ReorderCategoriesModal({
     >
       <View style={reorderStyles.overlay}>
         <View style={reorderStyles.sheet}>
-          <Text style={reorderStyles.title}>Reorder Categories</Text>
-          <Text style={reorderStyles.hint}>Hold  ≡  and drag to reorder</Text>
+          <Text style={reorderStyles.title}>{t('panel1.reorderCategoriesTitle')}</Text>
+          <Text style={reorderStyles.hint}>{t('panel1.reorderHint')}</Text>
 
           <View style={{ height: localOrder.length * ROW_H, marginVertical: 16 }}>
             {localOrder.map((cat, i) => (
@@ -682,8 +690,8 @@ function ReorderCategoriesModal({
           </View>
 
           <View style={reorderStyles.actions}>
-            <Button mode="outlined" onPress={onClose} style={{ flex: 1 }}>Cancel</Button>
-            <Button mode="contained" onPress={handleDone} style={{ flex: 1 }}>Done</Button>
+            <Button mode="outlined" onPress={onClose} style={{ flex: 1 }}>{t('common.cancel')}</Button>
+            <Button mode="contained" onPress={handleDone} style={{ flex: 1 }}>{t('common.done')}</Button>
           </View>
         </View>
       </View>
@@ -773,6 +781,7 @@ const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: '#0a0a0a' },
   scroll:         { flex: 1 },
   content:        { paddingTop: 8 },
+  helpRow:        { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 8 },
   sectionHeader: {
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',

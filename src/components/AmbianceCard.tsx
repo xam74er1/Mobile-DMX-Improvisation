@@ -2,6 +2,7 @@ import React from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Text, TouchableRipple } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 import type { Ambiance } from '../store/ambiancesStore'
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function AmbianceCard({ ambiance, isActive, onPress, onLongPress }: Props) {
+  const { t } = useTranslation()
   const previewColor = getPreviewColor(ambiance)
   const isDark = isColorDark(previewColor)
 
@@ -49,14 +51,13 @@ export function AmbianceCard({ ambiance, isActive, onPress, onLongPress }: Props
           <View style={styles.activeBadge}>
             <MaterialIcons name="check-circle" size={14} color={isDark ? '#ffffff' : '#000000'} />
             <Text style={[styles.activeBadgeText, { color: isDark ? '#ffffff' : '#000000' }]}>
-              ACTIVE
+              {t('components.ambianceCard.active')}
             </Text>
           </View>
         )}
 
         <Text style={[styles.lightCount, { color: isActive && !isDark ? '#33333388' : '#88888888' }]}>
-          {Object.keys(ambiance.lightStates).length} light
-          {Object.keys(ambiance.lightStates).length !== 1 ? 's' : ''}
+          {t('common.light', { count: Object.keys(ambiance.lightStates).length })}
         </Text>
       </View>
     </TouchableRipple>

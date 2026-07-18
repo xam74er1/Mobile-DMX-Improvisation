@@ -1,12 +1,14 @@
 import React from 'react'
 import { View, StyleSheet } from 'react-native'
 import { Text } from 'react-native-paper'
+import { useTranslation } from 'react-i18next'
 import { useDMXStatusStore } from '../store/dmxStatusStore'
 
 // Small, unobtrusive indicator for otherwise-silent UDP send failures
 // (DMXService swallows network errors so a single dropped packet doesn't
 // interrupt a show — but repeated failures should be visible somewhere).
 export function ConnectionStatusDot() {
+  const { t } = useTranslation()
   const ok = useDMXStatusStore((s) => s.ok)
   const lastErrorMessage = useDMXStatusStore((s) => s.lastErrorMessage)
 
@@ -16,7 +18,9 @@ export function ConnectionStatusDot() {
     <View style={styles.row}>
       <View style={[styles.dot, ok ? styles.dotOk : styles.dotFail]} />
       <Text style={[styles.label, ok ? styles.labelOk : styles.labelFail]} numberOfLines={1}>
-        {ok ? 'Sending to receiver' : `Send failed${lastErrorMessage ? `: ${lastErrorMessage}` : ''}`}
+        {ok
+          ? t('components.connectionStatus.sending')
+          : t('components.connectionStatus.sendFailed', { detail: lastErrorMessage ? `: ${lastErrorMessage}` : '' })}
       </Text>
     </View>
   )

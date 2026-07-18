@@ -8,6 +8,8 @@ import Slider from '../../src/components/AppSlider'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useFocusEffect } from 'expo-router'
+import { useTranslation } from 'react-i18next'
+import { HelpButton } from '../../src/components/HelpButton'
 import { SimpleColorPicker } from '../../src/components/SimpleColorPicker'
 import { WheelColorPicker } from '../../src/components/WheelColorPicker'
 import { IntensitySlider } from '../../src/components/IntensitySlider'
@@ -19,6 +21,7 @@ import { effectsRunner } from '../../src/effects/runner'
 import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
 
 export default function EditorScreen() {
+  const { t } = useTranslation()
   const params = useLocalSearchParams<{ ambianceId?: string }>()
   const ambiances = useAmbiancesStore((s) => s.ambiances)
   const setLightState = useAmbiancesStore((s) => s.setLightState)
@@ -131,8 +134,8 @@ export default function EditorScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>No ambiances yet.</Text>
-          <Text style={styles.emptyHint}>Go to the Control tab and tap + to create one.</Text>
+          <Text style={styles.emptyText}>{t('panel2.noAmbiancesYet')}</Text>
+          <Text style={styles.emptyHint}>{t('panel2.goCreateHint')}</Text>
         </View>
       </SafeAreaView>
     )
@@ -144,9 +147,12 @@ export default function EditorScreen() {
 
         {/* ── Ambiance selector ── */}
         <View style={styles.ambHeader}>
-          <Text style={styles.sectionLabel}>EDITING AMBIANCE</Text>
-          <IconButton icon="pencil" size={16} iconColor="#ff6b35"
-            onPress={() => { setRenameInput(editingAmbiance?.name ?? ''); setRenameDialog(true) }} />
+          <Text style={styles.sectionLabel}>{t('panel2.editingAmbiance')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <HelpButton section="editor" />
+            <IconButton icon="pencil" size={16} iconColor="#ff6b35"
+              onPress={() => { setRenameInput(editingAmbiance?.name ?? ''); setRenameDialog(true) }} />
+          </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {ambiances.map((a) => (
@@ -161,9 +167,9 @@ export default function EditorScreen() {
 
         {/* ── Light selector ── */}
         <View style={styles.lightSelectorHeader}>
-          <Text style={styles.sectionLabel}>SELECT LIGHT</Text>
+          <Text style={styles.sectionLabel}>{t('panel2.selectLight')}</Text>
           <View style={styles.allLightsRow}>
-            <Text style={styles.allLightsLabel}>All Lights</Text>
+            <Text style={styles.allLightsLabel}>{t('panel2.allLights')}</Text>
             <Switch value={allLights} onValueChange={setAllLights} color="#ff6b35" />
           </View>
         </View>
@@ -184,16 +190,16 @@ export default function EditorScreen() {
           })}
         </ScrollView>
 
-        {lights.length === 0 && <Text style={styles.noLightsHint}>Add lights in Settings → Lights tab.</Text>}
+        {lights.length === 0 && <Text style={styles.noLightsHint}>{t('panel2.noLightsHint')}</Text>}
 
         <Divider style={styles.divider} />
 
         {/* ── On/Off ── */}
         {!allLights && selectedLightId && (
           <View style={styles.onOffRow}>
-            <Text style={styles.sectionLabel}>{lights.find((l) => l.id === selectedLightId)?.name ?? 'Light'}</Text>
+            <Text style={styles.sectionLabel}>{lights.find((l) => l.id === selectedLightId)?.name ?? t('panel2.light')}</Text>
             <View style={styles.onOffToggle}>
-              <Text style={styles.onOffLabel}>{isOn ? 'ON' : 'OFF'}</Text>
+              <Text style={styles.onOffLabel}>{isOn ? t('panel2.on') : t('panel2.off')}</Text>
               <Switch value={isOn} onValueChange={(v) => applyPatch({ isOn: v })} color="#ff6b35" />
             </View>
           </View>
@@ -205,20 +211,20 @@ export default function EditorScreen() {
             style={[styles.modeTab, colorMode === 'wheel' && styles.modeTabActive]}
             onPress={() => setColorMode('wheel')}>
             <MaterialIcons name="colorize" size={15} color={colorMode === 'wheel' ? '#fff' : '#666'} />
-            <Text style={[styles.modeTabLabel, colorMode === 'wheel' && styles.modeTabLabelActive]}>Wheel</Text>
+            <Text style={[styles.modeTabLabel, colorMode === 'wheel' && styles.modeTabLabelActive]}>{t('panel2.wheel')}</Text>
           </Pressable>
           <Pressable
             style={[styles.modeTab, colorMode === 'sliders' && styles.modeTabActive]}
             onPress={() => setColorMode('sliders')}>
             <MaterialIcons name="tune" size={15} color={colorMode === 'sliders' ? '#fff' : '#666'} />
-            <Text style={[styles.modeTabLabel, colorMode === 'sliders' && styles.modeTabLabelActive]}>Sliders</Text>
+            <Text style={[styles.modeTabLabel, colorMode === 'sliders' && styles.modeTabLabelActive]}>{t('panel2.sliders')}</Text>
           </Pressable>
         </View>
 
         {colorMode === 'wheel' ? (
           <>
             {/* ── Quick colors ── */}
-            <Text style={styles.sectionLabel2}>QUICK COLORS</Text>
+            <Text style={styles.sectionLabel2}>{t('panel2.quickColors')}</Text>
             <SimpleColorPicker
               onSelectColor={(nr, ng, nb, nw, na, nuv) => applyPatch({ r: nr, g: ng, b: nb, w: nw, a: na, uv: nuv, isOn: true })}
               selectedHex={undefined}
@@ -226,21 +232,21 @@ export default function EditorScreen() {
             <Divider style={styles.divider} />
 
             {/* ── Chromatic wheel ── */}
-            <Text style={styles.sectionLabel2}>COLOR WHEEL</Text>
+            <Text style={styles.sectionLabel2}>{t('panel2.colorWheel')}</Text>
             <WheelColorPicker currentHex={currentHex}
               onColorChange={(nr, ng, nb) => applyPatch({ r: nr, g: ng, b: nb, isOn: true })} />
 
             <IntensitySlider value={(w / 255) * 100}
-              onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })} label="Dimmer (W)" />
+              onChange={(v) => applyPatch({ w: Math.round(v * 2.55) })} label={t('panel2.dimmerW')} />
             <IntensitySlider value={(a / 255) * 100}
               onChange={(v) => applyPatch({ a: Math.round(v * 2.55) })}
-              label={hasNativeAmber ? 'Amber' : 'Amber →RGB'} />
+              label={hasNativeAmber ? t('panel2.amber') : t('panel2.amberToRgb')} />
             {showUVSlider && (
               <IntensitySlider value={(uv / 255) * 100}
-                onChange={(v) => applyPatch({ uv: Math.round(v * 2.55) })} label="UV" />
+                onChange={(v) => applyPatch({ uv: Math.round(v * 2.55) })} label={t('panel2.uv')} />
             )}
             <Divider style={styles.divider} />
-            <Text style={styles.sectionLabel2}>INTENSITY</Text>
+            <Text style={styles.sectionLabel2}>{t('panel2.intensity')}</Text>
             <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
           </>
         ) : (
@@ -248,26 +254,26 @@ export default function EditorScreen() {
             {/* ── Sliders mode ── */}
             <ColorPreview r={r} g={g} b={b} w={w} amber={a} uv={uv} intensity={intensity} />
             <View style={styles.sliderSection}>
-              <ColorSlider label="Red"         value={r}  max={255} color="#ff3333"
+              <ColorSlider label={t('panel2.red')}   value={r}  max={255} color="#ff3333"
                 onChange={(v) => applyPatch({ r: v, isOn: true })} />
-              <ColorSlider label="Green"       value={g}  max={255} color="#33cc44"
+              <ColorSlider label={t('panel2.green')} value={g}  max={255} color="#33cc44"
                 onChange={(v) => applyPatch({ g: v, isOn: true })} />
-              <ColorSlider label="Blue"        value={b}  max={255} color="#3366ff"
+              <ColorSlider label={t('panel2.blue')}  value={b}  max={255} color="#3366ff"
                 onChange={(v) => applyPatch({ b: v, isOn: true })} />
-              <ColorSlider label="Dimmer (W)"  value={w}  max={255} color="#e8c97a"
+              <ColorSlider label={t('panel2.dimmerW')} value={w}  max={255} color="#e8c97a"
                 onChange={(v) => applyPatch({ w: v })} />
               <ColorSlider
-                label="Amber"
-                hint={hasNativeAmber ? undefined : '→ RGB mix'}
+                label={t('panel2.amber')}
+                hint={hasNativeAmber ? undefined : t('panel2.amberToRgbMixHint')}
                 value={a} max={255} color="#ff8c00"
                 onChange={(v) => applyPatch({ a: v })} />
               {showUVSlider && (
-                <ColorSlider label="UV" value={uv} max={255} color="#9944ff"
+                <ColorSlider label={t('panel2.uv')} value={uv} max={255} color="#9944ff"
                   onChange={(v) => applyPatch({ uv: v })} />
               )}
             </View>
             <Divider style={styles.divider} />
-            <Text style={styles.sectionLabel2}>INTENSITY</Text>
+            <Text style={styles.sectionLabel2}>{t('panel2.intensity')}</Text>
             <IntensitySlider value={intensity} onChange={(v) => applyPatch({ intensity: v })} />
           </>
         )}
@@ -276,14 +282,13 @@ export default function EditorScreen() {
 
         {/* ── Effects for this ambiance ── */}
         <View style={styles.effectsHeader}>
-          <Text style={styles.sectionLabel2}>EFFECTS IN THIS AMBIANCE</Text>
-          <Button icon="plus" mode="text" compact onPress={openAddEffect}>Add</Button>
+          <Text style={styles.sectionLabel2}>{t('panel2.effectsInAmbiance')}</Text>
+          <Button icon="plus" mode="text" compact onPress={openAddEffect}>{t('common.add')}</Button>
         </View>
 
         {(editingAmbiance?.effects ?? []).length === 0 && (
           <Text style={styles.noEffectsHint}>
-            No effects — tap Add to create one.{'\n'}
-            Examples: Strobe Party, Heartbeat, Ocean Breathe have effects pre-configured.
+            {t('panel2.noEffectsHint')}
           </Text>
         )}
 
@@ -291,7 +296,7 @@ export default function EditorScreen() {
           const preset = EFFECT_PRESET_MAP[eff.presetId]
           if (!preset) return null
           const targetLabel = eff.targetLightIds === 'all'
-            ? 'All lights'
+            ? t('panel2.allLightsLabel')
             : lights.filter((l) => (eff.targetLightIds as string[]).includes(l.id)).map((l) => l.name).join(', ') || '—'
           const paramLabel = ['ramp_up','ramp_down','breathe','color_transition'].includes(preset.kind)
             ? `${(eff.durationMs / 1000).toFixed(1)}s`
@@ -300,9 +305,9 @@ export default function EditorScreen() {
             <View key={eff.id} style={styles.effectRow}>
               <MaterialIcons name={preset.icon as any} size={18} color="#ff6b35" />
               <View style={styles.effectRowInfo}>
-                <Text style={styles.effectRowName}>{preset.name}</Text>
+                <Text style={styles.effectRowName}>{t(`effects.${preset.id}`, preset.name)}</Text>
                 <Text style={styles.effectRowMeta}>
-                  {targetLabel} · {paramLabel} {eff.repeat ? '· Repeat' : '· Once'}
+                  {targetLabel} · {paramLabel} {eff.repeat ? `· ${t('panel2.repeat')}` : `· ${t('panel2.once')}`}
                 </Text>
               </View>
               <IconButton icon="pencil" size={16} iconColor="#888" onPress={() => openEditEffect(eff)} />
@@ -322,13 +327,13 @@ export default function EditorScreen() {
       {/* ── Rename dialog ── */}
       <Portal>
         <Dialog visible={renameDialog} onDismiss={() => setRenameDialog(false)}>
-          <Dialog.Title>Rename Ambiance</Dialog.Title>
+          <Dialog.Title>{t('panel1.renameAmbianceTitle')}</Dialog.Title>
           <Dialog.Content>
-            <TextInput label="Name" value={renameInput} onChangeText={setRenameInput} mode="outlined" autoFocus />
+            <TextInput label={t('panel1.name')} value={renameInput} onChangeText={setRenameInput} mode="outlined" autoFocus />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setRenameDialog(false)}>Cancel</Button>
-            <Button onPress={() => { if (renameInput.trim()) renameAmbiance(editingId, renameInput.trim()); setRenameDialog(false) }}>Save</Button>
+            <Button onPress={() => setRenameDialog(false)}>{t('common.cancel')}</Button>
+            <Button onPress={() => { if (renameInput.trim()) renameAmbiance(editingId, renameInput.trim()); setRenameDialog(false) }}>{t('common.save')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -336,12 +341,12 @@ export default function EditorScreen() {
       {/* ── Add / Edit effect dialog ── */}
       <Portal>
         <Dialog visible={!!effectDialog} onDismiss={() => setEffectDialog(null)}>
-          <Dialog.Title>{effectDialog === 'add' ? 'Add Effect' : 'Edit Effect'}</Dialog.Title>
+          <Dialog.Title>{effectDialog === 'add' ? t('panel2.addEffect') : t('panel2.editEffect')}</Dialog.Title>
           {editingEffect && (
             <Dialog.ScrollArea style={styles.effectScrollArea}>
               <ScrollView>
                 {/* ── Preset picker (wrapped, not horizontal scroll) ── */}
-                <Text style={styles.dialogLabel}>Effect Type</Text>
+                <Text style={styles.dialogLabel}>{t('panel2.effectType')}</Text>
                 <View style={styles.presetPickerWrap}>
                   {EFFECT_PRESETS.map((p) => {
                     const isActive = editingEffect.presetId === p.id
@@ -362,14 +367,14 @@ export default function EditorScreen() {
                         style={[styles.presetPickBtn, isActive && styles.presetPickBtnActive]}
                       >
                         <MaterialIcons name={p.icon as any} size={18} color={isActive ? '#fff' : '#aaa'} />
-                        <Text style={[styles.presetPickName, isActive && { color: '#fff' }]}>{p.name}</Text>
+                        <Text style={[styles.presetPickName, isActive && { color: '#fff' }]}>{t(`effects.${p.id}`, p.name)}</Text>
                       </Pressable>
                     )
                   })}
                 </View>
 
                 {/* ── Target lights ── */}
-                <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Target Lights</Text>
+                <Text style={[styles.dialogLabel, { marginTop: 14 }]}>{t('panel2.targetLights')}</Text>
 
                 {/* "All Lights" master toggle */}
                 <Pressable
@@ -387,7 +392,7 @@ export default function EditorScreen() {
                     status={editingEffect.targetLightIds === 'all' ? 'checked' : 'unchecked'}
                     color="#ff6b35"
                   />
-                  <Text style={styles.allToggleLabel}>All Lights</Text>
+                  <Text style={styles.allToggleLabel}>{t('panel2.allLights')}</Text>
                 </Pressable>
 
                 {/* Individual lights — always visible; tapping deselects when "all" */}
@@ -430,7 +435,7 @@ export default function EditorScreen() {
                     return (
                       <>
                         <Text style={[styles.dialogLabel, { marginTop: 12 }]}>
-                          Duration: {sec.toFixed(1)} s
+                          {t('panel2.duration', { sec: sec.toFixed(1) })}
                         </Text>
                         <Slider value={sec}
                           onValueChange={(v) => setEditingEffect({ ...editingEffect, durationMs: Math.round(v * 1000) })}
@@ -443,7 +448,7 @@ export default function EditorScreen() {
                   return (
                     <>
                       <Text style={[styles.dialogLabel, { marginTop: 12 }]}>
-                        Speed: {editingEffect.bpm} BPM
+                        {t('panel2.speed', { bpm: editingEffect.bpm })}
                       </Text>
                       <Slider value={editingEffect.bpm}
                         onValueChange={(v) => setEditingEffect({ ...editingEffect, bpm: Math.round(v) })}
@@ -456,7 +461,7 @@ export default function EditorScreen() {
 
                 {/* Max intensity */}
                 <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
-                  Max Intensity: {editingEffect.maxIntensity}%
+                  {t('panel2.maxIntensity', { pct: editingEffect.maxIntensity })}
                 </Text>
                 <Slider value={editingEffect.maxIntensity}
                   onValueChange={(v) => setEditingEffect({ ...editingEffect, maxIntensity: Math.round(v) })}
@@ -474,7 +479,7 @@ export default function EditorScreen() {
                       <View style={styles.intensityOnlyNote}>
                         <MaterialIcons name="palette" size={14} color="#555" />
                         <Text style={styles.intensityOnlyText}>
-                          Uses each light's own color — only intensity changes
+                          {t('panel2.intensityOnlyNote')}
                         </Text>
                       </View>
                     )
@@ -485,7 +490,7 @@ export default function EditorScreen() {
                     const tc = editingEffect.toColor ?? preset.defaultToColor
                     return (
                       <>
-                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>From Color</Text>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>{t('panel2.fromColor')}</Text>
                         <View style={styles.colorSwatchRow}>
                           {DEFAULT_COLORS.map((c) => {
                             const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
@@ -496,7 +501,7 @@ export default function EditorScreen() {
                             )
                           })}
                         </View>
-                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>To Color</Text>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>{t('panel2.toColor')}</Text>
                         <View style={styles.colorSwatchRow}>
                           {DEFAULT_COLORS.map((c) => {
                             const sel = tc && tc.r === c.r && tc.g === c.g && tc.b === c.b
@@ -516,7 +521,7 @@ export default function EditorScreen() {
                     const cb = editingEffect.colorB ?? preset.colorB ?? preset.color
                     return (
                       <>
-                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Color A</Text>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>{t('panel2.colorA')}</Text>
                         <View style={styles.colorSwatchRow}>
                           {DEFAULT_COLORS.map((c) => {
                             const sel = ca && ca.r === c.r && ca.g === c.g && ca.b === c.b
@@ -527,7 +532,7 @@ export default function EditorScreen() {
                             )
                           })}
                         </View>
-                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Color B</Text>
+                        <Text style={[styles.dialogLabel, { marginTop: 10 }]}>{t('panel2.colorB')}</Text>
                         <View style={styles.colorSwatchRow}>
                           {DEFAULT_COLORS.map((c) => {
                             const sel = cb && cb.r === c.r && cb.g === c.g && cb.b === c.b
@@ -546,7 +551,7 @@ export default function EditorScreen() {
                   const fc = editingEffect.fromColor ?? preset.color
                   return (
                     <>
-                      <Text style={[styles.dialogLabel, { marginTop: 10 }]}>Flash Color</Text>
+                      <Text style={[styles.dialogLabel, { marginTop: 10 }]}>{t('panel2.flashColor')}</Text>
                       <View style={styles.colorSwatchRow}>
                         {DEFAULT_COLORS.map((c) => {
                           const sel = fc && fc.r === c.r && fc.g === c.g && fc.b === c.b
@@ -566,7 +571,7 @@ export default function EditorScreen() {
                   <Pressable style={styles.allToggleRow}
                     onPress={() => setEditingEffect({ ...editingEffect, repeat: !editingEffect.repeat })}>
                     <Checkbox status={editingEffect.repeat ? 'checked' : 'unchecked'} color="#ff6b35" />
-                    <Text style={styles.allToggleLabel}>Repeat</Text>
+                    <Text style={styles.allToggleLabel}>{t('panel2.repeat')}</Text>
                   </Pressable>
                 )}
 
@@ -575,8 +580,8 @@ export default function EditorScreen() {
             </Dialog.ScrollArea>
           )}
           <Dialog.Actions>
-            <Button onPress={() => setEffectDialog(null)}>Cancel</Button>
-            <Button onPress={saveEffect}>Save</Button>
+            <Button onPress={() => setEffectDialog(null)}>{t('common.cancel')}</Button>
+            <Button onPress={saveEffect}>{t('common.save')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

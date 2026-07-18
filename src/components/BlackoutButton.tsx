@@ -2,9 +2,11 @@ import React from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Text, TouchableRipple } from 'react-native-paper'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
+import { useTranslation } from 'react-i18next'
 import { useAmbiancesStore } from '../store/ambiancesStore'
 
 export function BlackoutButton() {
+  const { t } = useTranslation()
   const blackout = useAmbiancesStore((s) => s.blackout)
   const toggleBlackout = useAmbiancesStore((s) => s.toggleBlackout)
   const scale = useSharedValue(1)
@@ -27,8 +29,8 @@ export function BlackoutButton() {
       >
         <View style={styles.inner}>
           <Text style={styles.icon}>{blackout ? '⚫' : '💡'}</Text>
-          <Text style={styles.label}>{blackout ? 'BLACKOUT' : 'ALL LIGHTS ON'}</Text>
-          <Text style={styles.sub}>{blackout ? 'Tap to restore' : 'Tap for blackout'}</Text>
+          <Text style={styles.label}>{blackout ? t('components.blackout.blackoutLabel') : t('components.blackout.allOnLabel')}</Text>
+          <Text style={styles.sub}>{blackout ? t('components.blackout.tapToRestore') : t('components.blackout.tapForBlackout')}</Text>
         </View>
       </TouchableRipple>
     </Animated.View>

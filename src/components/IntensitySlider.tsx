@@ -1,6 +1,7 @@
 import React from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Text } from 'react-native-paper'
+import { useTranslation } from 'react-i18next'
 import Slider from './AppSlider'
 
 interface Props {
@@ -9,11 +10,13 @@ interface Props {
   label?: string
 }
 
-export function IntensitySlider({ value, onChange, label = 'Intensity' }: Props) {
+export function IntensitySlider({ value, onChange, label }: Props) {
+  const { t } = useTranslation()
+  const resolvedLabel = label ?? t('components.intensitySlider.defaultLabel')
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>{resolvedLabel}</Text>
         <Text style={styles.value}>{Math.round(value)}%</Text>
       </View>
       <Slider

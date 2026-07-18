@@ -6,10 +6,12 @@ import {
   SegmentedButtons, Menu, Switch, Chip, RadioButton,
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useTranslation } from 'react-i18next'
 import { SceneStage } from '../../src/components/SceneStage'
+import { HelpButton, type HelpSection } from '../../src/components/HelpButton'
 import { useLightsStore, DEFAULT_LIGHTS, type Light, type LightColor } from '../../src/store/lightsStore'
 import { useZonesStore } from '../../src/store/zonesStore'
-import { useSettingsStore } from '../../src/store/settingsStore'
+import { useSettingsStore, type AppLanguage } from '../../src/store/settingsStore'
 import {
   useAmbiancesStore, type LightState,
   DEFAULT_AMBIANCES, DEFAULT_CATEGORIES,
@@ -24,7 +26,7 @@ import {
   importSLS, exportSLSToFile, exportSLSToClipboard,
 } from '../../src/utils/configIO'
 
-type Tab = 'connection' | 'lights' | 'data'
+type Tab = 'connection' | 'lights' | 'data' | 'tutorial'
 
 // Distinct bright colors for test mode, one per light
 const TEST_PALETTE: LightColor[] = [
@@ -40,6 +42,7 @@ const TEST_PALETTE: LightColor[] = [
 
 export default function SettingsScreen() {
   const [tab, setTab] = useState<Tab>('connection')
+  const { t } = useTranslation()
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -48,9 +51,10 @@ export default function SettingsScreen() {
           value={tab}
           onValueChange={(v) => setTab(v as Tab)}
           buttons={[
-            { value: 'connection', label: 'Connection', icon: 'wifi' },
-            { value: 'lights', label: 'Lights', icon: 'lightbulb-outline' },
-            { value: 'data', label: 'Backup', icon: 'archive' },
+            { value: 'connection', label: t('settings.tabs.connection'), icon: 'wifi' },
+            { value: 'lights', label: t('settings.tabs.lights'), icon: 'lightbulb-outline' },
+            { value: 'data', label: t('settings.tabs.data'), icon: 'archive' },
+            { value: 'tutorial', label: t('settings.tabs.tutorial'), icon: 'school-outline' },
           ]}
           style={styles.segmented}
         />
@@ -59,6 +63,7 @@ export default function SettingsScreen() {
       {tab === 'connection' && <ConnectionTab />}
       {tab === 'lights' && <LightsTab />}
       {tab === 'data' && <DataTab />}
+      {tab === 'tutorial' && <TutorialTab />}
     </SafeAreaView>
   )
 }
@@ -67,6 +72,7 @@ export default function SettingsScreen() {
 // CONNECTION TAB
 // ─────────────────────────────────────────────────────────────────────────────
 function ConnectionTab() {
+  const { t } = useTranslation()
   const receiverIp = useSettingsStore((s) => s.receiverIp)
   const receiverPort = useSettingsStore((s) => s.receiverPort)
   const universe = useSettingsStore((s) => s.universe)
@@ -143,20 +149,23 @@ function ConnectionTab() {
 
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
-      <Text style={styles.sectionTitle}>DMX RECEIVER</Text>
+      <View style={styles.tabHeaderRow}>
+        <Text style={styles.sectionTitle}>{t('settings.connection.sectionTitle')}</Text>
+        <HelpButton section="network" />
+      </View>
       <Text style={styles.hint}>
-        Eurolite FreeDMX AP defaults: IP 2.0.0.1 · Port 6454 · Universe 0
+        {t('settings.connection.defaultsHint')}
       </Text>
 
       <View style={styles.card}>
-        <Text style={styles.dialogLabel}>Quick Preset</Text>
+        <Text style={styles.dialogLabel}>{t('settings.connection.quickPreset')}</Text>
         <View style={styles.presetRow}>
           <Pressable
             style={[styles.presetChip, ipInput === '192.168.4.1' && styles.presetChipActive]}
             onPress={() => { setIpInput('192.168.4.1'); setReceiverIp('192.168.4.1') }}
           >
             <Text style={[styles.presetChipLabel, ipInput === '192.168.4.1' && styles.presetChipLabelActive]}>
-              Show
+              {t('settings.connection.presetShow')}
             </Text>
             <Text style={styles.presetChipSub}>192.168.4.1</Text>
           </Pressable>
@@ -165,14 +174,14 @@ function ConnectionTab() {
             onPress={() => { setIpInput('127.0.0.1'); setReceiverIp('127.0.0.1') }}
           >
             <Text style={[styles.presetChipLabel, ipInput === '127.0.0.1' && styles.presetChipLabelActive]}>
-              Local
+              {t('settings.connection.presetLocal')}
             </Text>
             <Text style={styles.presetChipSub}>127.0.0.1</Text>
           </Pressable>
         </View>
 
         <TextInput
-          label="Receiver IP Address"
+          label={t('settings.connection.ipLabel')}
           value={ipInput}
           onChangeText={setIpInput}
           onBlur={commitIp}
@@ -182,7 +191,7 @@ function ConnectionTab() {
           left={<TextInput.Icon icon="wifi" />}
         />
         <TextInput
-          label="UDP Port"
+          label={t('settings.connection.portLabel')}
           value={portInput}
           onChangeText={setPortInput}
           onBlur={commitPort}
@@ -192,7 +201,7 @@ function ConnectionTab() {
           left={<TextInput.Icon icon="numeric" />}
         />
         <TextInput
-          label="Art-Net Universe (0–255)"
+          label={t('settings.connection.universeLabel')}
           value={universeInput}
           onChangeText={setUniverseInput}
           onBlur={commitUniverse}
@@ -203,10 +212,10 @@ function ConnectionTab() {
         />
 
         {testResult === 'ok' && (
-          <Text style={styles.successMsg}>✓ Blink sent — lights should have flashed twice</Text>
+          <Text style={styles.successMsg}>{t('settings.connection.successMsg')}</Text>
         )}
         {testResult === 'fail' && (
-          <Text style={styles.errorMsg}>✗ Send failed — check IP and WiFi connection</Text>
+          <Text style={styles.errorMsg}>{t('settings.connection.errorMsg')}</Text>
         )}
 
         <Button
@@ -218,14 +227,14 @@ function ConnectionTab() {
           style={styles.testBtn}
           contentStyle={styles.testBtnContent}
         >
-          Test Connection (Blink)
+          {t('settings.connection.testButton')}
         </Button>
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>NETWORK DISCOVERY</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.connection.discoveryTitle')}</Text>
       <View style={styles.card}>
         <Text style={styles.hint}>
-          Broadcasts an ArtPoll and lists any Art-Net receiver that answers on your WiFi network.
+          {t('settings.connection.discoveryHint')}
         </Text>
         <Button
           mode="outlined"
@@ -236,18 +245,18 @@ function ConnectionTab() {
           style={styles.dataBtnOutline}
           contentStyle={styles.testBtnContent}
         >
-          Scan Network
+          {t('settings.connection.scanButton')}
         </Button>
 
         {!dmxService.supportsDiscovery() && (
-          <Text style={styles.hint}>Not available on Web — use the Android/iOS app to scan.</Text>
+          <Text style={styles.hint}>{t('settings.connection.webNotSupported')}</Text>
         )}
         {scanError && <Text style={styles.errorMsg}>✗ {scanError}</Text>}
         {scanning && foundNodes.length === 0 && (
-          <Text style={styles.hint}>Scanning…</Text>
+          <Text style={styles.hint}>{t('settings.connection.scanning')}</Text>
         )}
         {!scanning && !scanError && foundNodes.length === 0 && dmxService.supportsDiscovery() && (
-          <Text style={styles.hint}>No nodes found yet — tap Scan while on the same WiFi as your receiver.</Text>
+          <Text style={styles.hint}>{t('settings.connection.noNodesFound')}</Text>
         )}
 
         {foundNodes.length > 0 && (
@@ -259,7 +268,7 @@ function ConnectionTab() {
                 onPress={() => { setIpInput(node.ip); setReceiverIp(node.ip) }}
               >
                 <Text style={[styles.presetChipLabel, ipInput === node.ip && styles.presetChipLabelActive]}>
-                  {node.shortName || 'Art-Net Node'}
+                  {node.shortName || t('settings.connection.nodeFallbackName')}
                 </Text>
                 <Text style={styles.presetChipSub}>{node.ip}</Text>
               </Pressable>
@@ -276,11 +285,14 @@ function ConnectionTab() {
 // Stage is outside ScrollView to avoid gesture conflicts with drag
 // ─────────────────────────────────────────────────────────────────────────────
 function LightsTab() {
+  const { t } = useTranslation()
   const lights = useLightsStore((s) => s.lights)
   const addLight = useLightsStore((s) => s.addLight)
   const removeLight = useLightsStore((s) => s.removeLight)
   const updateLight = useLightsStore((s) => s.updateLight)
   const updateLightPosition = useLightsStore((s) => s.updateLightPosition)
+  const setAllChannelMode = useLightsStore((s) => s.setAllChannelMode)
+  const renumberSequential = useLightsStore((s) => s.renumberSequential)
 
   const activeAmbianceId = useAmbiancesStore((s) => s.activeAmbianceId)
   const ambiances = useAmbiancesStore((s) => s.ambiances)
@@ -349,6 +361,32 @@ function LightsTab() {
   const [editBeamWidth, setEditBeamWidth] = useState(1.0)
   const [editMaxIntensity, setEditMaxIntensity] = useState(100)
 
+  // ── Bulk setup (all-lights format + auto-numbering) ──────────
+  const [bulkDialog, setBulkDialog] = useState(false)
+  const [bulkMode, setBulkMode] = useState<ChannelMode>('DIM16_RGBWAUV')
+  const [bulkModeMenuVisible, setBulkModeMenuVisible] = useState(false)
+  const [renumberStart, setRenumberStart] = useState('1')
+
+  function applyBulkMode() {
+    if (lights.length === 0) return
+    Alert.alert(
+      t('settings.lights.bulkConfirmTitle'),
+      t('settings.lights.bulkConfirmMessage', {
+        count: lights.length,
+        mode: CHANNEL_MODE_OPTIONS.find((m) => m.mode === bulkMode)?.label ?? bulkMode,
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.apply'), onPress: () => setAllChannelMode(bulkMode) },
+      ],
+    )
+  }
+
+  function applyRenumber() {
+    const start = parseInt(renumberStart, 10)
+    renumberSequential(Number.isFinite(start) ? start : 1)
+  }
+
   function openEdit(light: Light) {
     setEditDialog(light)
     setEditName(light.name)
@@ -395,11 +433,12 @@ function LightsTab() {
       {/* ── Virtual scene (outside scroll — gesture-safe) ── */}
       <View style={styles.sceneArea}>
         <View style={styles.sceneHeader}>
-          <Text style={styles.sectionTitle}>VIRTUAL SCENE</Text>
+          <Text style={styles.sectionTitle}>{t('settings.lights.virtualScene')}</Text>
           <View style={styles.sceneHeaderRight}>
+            <HelpButton section="lights" />
             {testMode
-              ? <Chip icon="palette" onPress={stopTestMode} style={styles.testChipActive} textStyle={styles.testChipTextActive}>Stop Test</Chip>
-              : <Chip icon="lightbulb-on-outline" onPress={startTestMode} style={styles.testChip} textStyle={styles.testChipText}>Test Mode</Chip>
+              ? <Chip icon="palette" onPress={stopTestMode} style={styles.testChipActive} textStyle={styles.testChipTextActive}>{t('settings.lights.stopTest')}</Chip>
+              : <Chip icon="lightbulb-on-outline" onPress={startTestMode} style={styles.testChip} textStyle={styles.testChipText}>{t('settings.lights.testMode')}</Chip>
             }
           </View>
         </View>
@@ -407,18 +446,18 @@ function LightsTab() {
         {testMode && (
           <View style={styles.testBanner}>
             <Text style={styles.testBannerText}>
-              🎨 Test mode — each light shows a distinct color
+              {t('settings.lights.testBanner')}
             </Text>
           </View>
         )}
 
         {!testMode && activeAmbiance && (
           <Text style={styles.sceneSubtitle}>
-            Showing: <Text style={{ color: '#ff6b35' }}>{activeAmbiance.name}</Text>
+            {t('settings.lights.showing')}<Text style={{ color: '#ff6b35' }}>{activeAmbiance.name}</Text>
           </Text>
         )}
         {!testMode && !activeAmbiance && (
-          <Text style={styles.sceneSubtitle}>Showing default colors · activate an ambiance to preview</Text>
+          <Text style={styles.sceneSubtitle}>{t('settings.lights.showingDefault')}</Text>
         )}
 
         <SceneStage
@@ -432,10 +471,15 @@ function LightsTab() {
       {/* ── Scrollable light list ── */}
       <ScrollView contentContainerStyle={styles.listContent}>
         <View style={styles.listHeader}>
-          <Text style={styles.sectionTitle}>CONFIGURED LIGHTS</Text>
-          <Button icon="plus" mode="text" compact onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}>
-            Add
-          </Button>
+          <Text style={styles.sectionTitle}>{t('settings.lights.configuredLights')}</Text>
+          <View style={{ flexDirection: 'row' }}>
+            <Button icon="tune" mode="text" compact onPress={() => setBulkDialog(true)} disabled={lights.length === 0}>
+              {t('settings.lights.bulkSetup')}
+            </Button>
+            <Button icon="plus" mode="text" compact onPress={() => { setNewName(''); setNewAddr(''); setAddDialog(true) }}>
+              {t('common.add')}
+            </Button>
+          </View>
         </View>
 
         {(() => {
@@ -451,17 +495,20 @@ function LightsTab() {
                 <View style={styles.lightRowInfo}>
                   <Text style={styles.lightRowName}>{light.name}</Text>
                   <Text style={[styles.lightRowMeta, hasOverlap && styles.lightRowMetaWarn]}>
-                    ch{chStart === chEnd ? chStart : `${chStart}–${chEnd}`} · {light.channelMode}
-                    {hasOverlap ? ' · ⚠ overlaps another fixture' : ''}
+                    {t('settings.lights.channelRange', {
+                      range: chStart === chEnd ? chStart : `${chStart}–${chEnd}`,
+                      mode: light.channelMode,
+                    })}
+                    {hasOverlap ? t('settings.lights.overlapWarning') : ''}
                   </Text>
                 </View>
                 <IconButton icon="pencil" size={18} iconColor="#ff6b35" onPress={() => openEdit(light)} />
                 <IconButton
                   icon="delete-outline" size={18} iconColor="#e74c3c"
                   onPress={() =>
-                    Alert.alert('Remove', `Remove "${light.name}"?`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Remove', style: 'destructive', onPress: () => removeLight(light.id) },
+                    Alert.alert(t('settings.lights.removeTitle'), t('settings.lights.removeMessage', { name: light.name }), [
+                      { text: t('common.cancel'), style: 'cancel' },
+                      { text: t('common.remove'), style: 'destructive', onPress: () => removeLight(light.id) },
                     ])
                   }
                 />
@@ -470,7 +517,7 @@ function LightsTab() {
           })
         })()}
         {lights.length === 0 && (
-          <Text style={styles.emptyHint}>No lights yet. Tap Add to create your first fixture.</Text>
+          <Text style={styles.emptyHint}>{t('settings.lights.emptyHint')}</Text>
         )}
 
         {/* ── Stage zones ── */}
@@ -479,14 +526,64 @@ function LightsTab() {
         <View style={{ height: 24 }} />
       </ScrollView>
 
+      {/* ── Bulk setup dialog: same format for all lights + auto-numbering ── */}
+      <Portal>
+        <Dialog visible={bulkDialog} onDismiss={() => setBulkDialog(false)}>
+          <Dialog.Title>{t('settings.lights.bulkSetupTitle')}</Dialog.Title>
+          <Dialog.Content>
+            <Text style={styles.dialogLabel}>{t('settings.lights.bulkFormatLabel')}</Text>
+            <Text style={styles.hint}>
+              {t('settings.lights.bulkFormatHint')}
+            </Text>
+            <Menu
+              visible={bulkModeMenuVisible}
+              onDismiss={() => setBulkModeMenuVisible(false)}
+              anchor={
+                <Button mode="outlined" onPress={() => setBulkModeMenuVisible(true)} style={styles.modeBtn}>
+                  {CHANNEL_MODE_OPTIONS.find((m) => m.mode === bulkMode)?.label ?? bulkMode}
+                </Button>
+              }
+            >
+              {CHANNEL_MODE_OPTIONS.map((opt) => (
+                <Menu.Item key={opt.mode} title={opt.label} onPress={() => { setBulkMode(opt.mode); setBulkModeMenuVisible(false) }} />
+              ))}
+            </Menu>
+            <Button mode="contained" onPress={applyBulkMode} style={[styles.testBtn, { marginTop: 8 }]} contentStyle={styles.testBtnContent}>
+              {t('settings.lights.bulkApplyButton', { count: lights.length })}
+            </Button>
+
+            <View style={styles.bulkDivider} />
+
+            <Text style={styles.dialogLabel}>{t('settings.lights.bulkRenumberLabel')}</Text>
+            <Text style={styles.hint}>
+              {t('settings.lights.bulkRenumberHint')}
+            </Text>
+            <TextInput
+              label={t('settings.lights.startAddressLabel')}
+              value={renumberStart}
+              onChangeText={setRenumberStart}
+              keyboardType="numeric"
+              mode="outlined"
+              style={styles.dialogInput}
+            />
+            <Button mode="contained" onPress={applyRenumber} style={styles.testBtn} contentStyle={styles.testBtnContent}>
+              {t('settings.lights.bulkRenumberButton', { count: lights.length })}
+            </Button>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setBulkDialog(false)}>{t('common.done')}</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
       {/* ── Add dialog ── */}
       <Portal>
         <Dialog visible={addDialog} onDismiss={() => setAddDialog(false)}>
-          <Dialog.Title>Add Light</Dialog.Title>
+          <Dialog.Title>{t('settings.lights.addLightTitle')}</Dialog.Title>
           <Dialog.Content>
-            <TextInput label="Name" value={newName} onChangeText={setNewName} mode="outlined" style={styles.dialogInput} autoFocus placeholder={`Light ${lights.length + 1}`} />
-            <TextInput label="DMX Start Address (1–512)" value={newAddr} onChangeText={setNewAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
-            <Text style={styles.dialogLabel}>Channel Mode</Text>
+            <TextInput label={t('settings.lights.nameLabel')} value={newName} onChangeText={setNewName} mode="outlined" style={styles.dialogInput} autoFocus placeholder={`Light ${lights.length + 1}`} />
+            <TextInput label={t('settings.lights.addressLabel')} value={newAddr} onChangeText={setNewAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
+            <Text style={styles.dialogLabel}>{t('settings.lights.channelModeLabel')}</Text>
             <Menu
               visible={addModeMenuVisible}
               onDismiss={() => setAddModeMenuVisible(false)}
@@ -498,8 +595,8 @@ function LightsTab() {
             </Menu>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setAddDialog(false)}>Cancel</Button>
-            <Button onPress={confirmAdd}>Add</Button>
+            <Button onPress={() => setAddDialog(false)}>{t('common.cancel')}</Button>
+            <Button onPress={confirmAdd}>{t('common.add')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -507,13 +604,13 @@ function LightsTab() {
       {/* ── Edit / configure dialog ── */}
       <Portal>
         <Dialog visible={!!editDialog} onDismiss={() => setEditDialog(null)}>
-          <Dialog.Title>Configure Light</Dialog.Title>
+          <Dialog.Title>{t('settings.lights.configureLightTitle')}</Dialog.Title>
           <Dialog.ScrollArea style={styles.editScrollArea}>
             <ScrollView>
-              <TextInput label="Name" value={editName} onChangeText={setEditName} mode="outlined" style={styles.dialogInput} autoFocus />
-              <TextInput label="DMX Start Address (1–512)" value={editAddr} onChangeText={setEditAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
+              <TextInput label={t('settings.lights.nameLabel')} value={editName} onChangeText={setEditName} mode="outlined" style={styles.dialogInput} autoFocus />
+              <TextInput label={t('settings.lights.addressLabel')} value={editAddr} onChangeText={setEditAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
 
-              <Text style={styles.dialogLabel}>Channel Mode</Text>
+              <Text style={styles.dialogLabel}>{t('settings.lights.channelModeLabel')}</Text>
               <Menu
                 visible={editModeMenuVisible}
                 onDismiss={() => setEditModeMenuVisible(false)}
@@ -526,8 +623,7 @@ function LightsTab() {
 
               {/* ── Rotation ── */}
               <Text style={[styles.dialogLabel, { marginTop: 14 }]}>
-                Beam Direction: {Math.round(editRotation)}°
-                {'  '}{rotationLabel(editRotation)}
+                {t('settings.lights.beamDirection', { deg: Math.round(editRotation), label: rotationLabel(editRotation, t) })}
               </Text>
               <Slider
                 value={editRotation}
@@ -547,7 +643,7 @@ function LightsTab() {
 
               {/* ── Beam width ── */}
               <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
-                Beam Width: {beamWidthLabel(editBeamWidth)}
+                {t('settings.lights.beamWidth', { label: beamWidthLabel(editBeamWidth, t) })}
               </Text>
               <Slider
                 value={editBeamWidth}
@@ -566,7 +662,7 @@ function LightsTab() {
 
               {/* ── Max intensity cap ── */}
               <Text style={[styles.dialogLabel, { marginTop: 10 }]}>
-                Max Intensity: {Math.round(editMaxIntensity)}%
+                {t('settings.lights.maxIntensity', { pct: Math.round(editMaxIntensity) })}
               </Text>
               <Slider
                 value={editMaxIntensity}
@@ -579,10 +675,10 @@ function LightsTab() {
                 thumbTintColor="#ff6b35"
                 style={styles.slider}
               />
-              <Text style={styles.hint}>Hard cap — this light never goes brighter than this.</Text>
+              <Text style={styles.hint}>{t('settings.lights.maxIntensityHint')}</Text>
 
               {/* ── Default color picker ── */}
-              <Text style={[styles.dialogLabel, { marginTop: 14 }]}>Default Color (shown when no ambiance active)</Text>
+              <Text style={[styles.dialogLabel, { marginTop: 14 }]}>{t('settings.lights.defaultColorLabel')}</Text>
               <View style={styles.colorSwatches}>
                 {DEFAULT_COLORS.map((c) => {
                   const col: LightColor = { r: c.r, g: c.g, b: c.b, w: c.w, a: c.a ?? 0, uv: c.uv ?? 0 }
@@ -615,8 +711,8 @@ function LightsTab() {
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button onPress={() => setEditDialog(null)}>Cancel</Button>
-            <Button onPress={confirmEdit}>Save</Button>
+            <Button onPress={() => setEditDialog(null)}>{t('common.cancel')}</Button>
+            <Button onPress={confirmEdit}>{t('common.save')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -628,6 +724,7 @@ function LightsTab() {
 // DATA TAB — export / import / reset
 // ─────────────────────────────────────────────────────────────────────────────
 function DataTab() {
+  const { t } = useTranslation()
   const lights = useLightsStore((s) => s.lights)
   const ambiances = useAmbiancesStore((s) => s.ambiances)
   const categories = useAmbiancesStore((s) => s.categories)
@@ -704,32 +801,32 @@ function DataTab() {
 
   function applyJSONImport(text: string) {
     const config = parseConfig(text)
-    if (!config) { showErr('Not a valid DMX Improvisator file.'); return }
+    if (!config) { showErr(t('settings.data.notValidFile')); return }
     if (importMode === 'replace') {
       Alert.alert(
-        'Replace everything?',
-        'This will overwrite all your lights, ambiances and settings.',
+        t('settings.data.replaceConfirmTitle'),
+        t('settings.data.replaceConfirmMessage'),
         [
-          { text: 'Cancel', style: 'cancel', onPress: () => setBusy(false) },
-          { text: 'Replace', style: 'destructive', onPress: () => {
+          { text: t('common.cancel'), style: 'cancel', onPress: () => setBusy(false) },
+          { text: t('settings.data.replace'), style: 'destructive', onPress: () => {
             applyConfig(config, 'replace')
-            showOk(`Loaded ${config.ambiances.length} ambiances, ${config.lights.length} lights.`)
+            showOk(t('settings.data.loadedMessage', { ambCount: config.ambiances.length, lightCount: config.lights.length }))
           }},
         ],
       )
     } else {
       applyConfig(config, 'merge')
-      showOk(`Merged ${config.ambiances.length} ambiances, ${config.lights.length} lights.`)
+      showOk(t('settings.data.mergedMessage', { ambCount: config.ambiances.length, lightCount: config.lights.length }))
     }
   }
 
   function applySLSImport(text: string, filename: string) {
     if (lights.length === 0) {
-      showErr('Add your lights in the Lights tab first so channels can be mapped correctly.')
+      showErr(t('settings.data.addLightsFirstError'))
       return
     }
     const imported = importSLS(text, lights)
-    if (imported.length === 0) { showErr('No ambiances found in this SLS file.'); return }
+    if (imported.length === 0) { showErr(t('settings.data.noAmbiancesInSls')); return }
     const catName = filename.replace(/\.[^.]+$/, '').slice(0, 40) || 'Myriad Import'
     const catId = addCategory(catName)
     for (const amb of imported) {
@@ -738,17 +835,17 @@ function DataTab() {
         setLightState(newId, lightId, state)
       }
     }
-    showOk(`Imported ${imported.length} ambiances from SLS into category "${catName}".`)
+    showOk(t('settings.data.importedSlsMessage', { count: imported.length, category: catName }))
   }
 
   function handleFactoryReset() {
     Alert.alert(
-      'Factory Reset',
-      `This will delete all ${customAmbiances.length} custom ambiances and all ${lights.length} configured lights, restoring the original 4 fixtures (11ch Dim16 mode) and factory presets. This cannot be undone.`,
+      t('settings.data.factoryReset'),
+      t('settings.data.factoryResetConfirmMessage', { ambCount: customAmbiances.length, lightCount: lights.length }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('common.reset'),
           style: 'destructive',
           onPress: () => {
             useAmbiancesStore.setState({
@@ -757,7 +854,7 @@ function DataTab() {
               activeAmbianceId: null,
             })
             useLightsStore.setState({ lights: DEFAULT_LIGHTS })
-            showOk('Restored factory defaults.')
+            showOk(t('settings.data.restoredDefaults'))
           },
         },
       ],
@@ -768,24 +865,27 @@ function DataTab() {
     <ScrollView contentContainerStyle={styles.tabContent}>
 
       {/* ── EXPORT ── */}
-      <Text style={styles.sectionTitle}>EXPORT</Text>
+      <View style={styles.tabHeaderRow}>
+        <Text style={styles.sectionTitle}>{t('settings.data.exportTitle')}</Text>
+        <HelpButton section="backup" />
+      </View>
       <View style={styles.card}>
         <View style={styles.exportHeaderRow}>
-          <Text style={styles.cardLabel}>Custom ambiances only</Text>
+          <Text style={styles.cardLabel}>{t('settings.data.customOnly')}</Text>
           <Text style={styles.cardCount}>
-            {customAmbiances.length} ambiance{customAmbiances.length !== 1 ? 's' : ''}
+            {t('settings.data.ambianceCount', { count: customAmbiances.length })}
           </Text>
         </View>
-        <Text style={styles.hint}>Factory presets and default colors are excluded.</Text>
+        <Text style={styles.hint}>{t('settings.data.excludedHint')}</Text>
 
-        <Text style={[styles.dialogLabel, { marginTop: 2 }]}>Format</Text>
+        <Text style={[styles.dialogLabel, { marginTop: 2 }]}>{t('settings.data.formatLabel')}</Text>
         <View style={styles.formatRow}>
           <Pressable
             style={[styles.formatChip, exportFormat === 'sls' && styles.formatChipActive]}
             onPress={() => setExportFormat('sls')}
           >
             <Text style={[styles.formatChipLabel, exportFormat === 'sls' && styles.formatChipLabelActive]}>
-              Myriad SLS
+              {t('settings.data.formatSls')}
             </Text>
             <Text style={styles.formatChipExt}>.SLS_AmbiancesDigest</Text>
           </Pressable>
@@ -794,7 +894,7 @@ function DataTab() {
             onPress={() => setExportFormat('json')}
           >
             <Text style={[styles.formatChipLabel, exportFormat === 'json' && styles.formatChipLabelActive]}>
-              JSON
+              {t('settings.data.formatJson')}
             </Text>
             <Text style={styles.formatChipExt}>.dmximp.json</Text>
           </Pressable>
@@ -805,42 +905,42 @@ function DataTab() {
           disabled={busy || customAmbiances.length === 0}
           style={styles.dataBtn} contentStyle={styles.dataBtnContent}
         >
-          Export to File
+          {t('settings.data.exportToFile')}
         </Button>
         <Button
           icon="content-copy" mode="outlined" onPress={handleCopyClipboard} loading={busy}
           disabled={busy || customAmbiances.length === 0}
           style={styles.dataBtnOutline} contentStyle={styles.dataBtnContent}
         >
-          Copy to Clipboard
+          {t('settings.data.copyToClipboard')}
         </Button>
         {customAmbiances.length === 0 && (
           <Text style={[styles.hint, { textAlign: 'center', marginTop: 4 }]}>
-            No custom ambiances yet — create some in Panel 1.
+            {t('settings.data.noCustomAmbiances')}
           </Text>
         )}
       </View>
 
       {/* ── IMPORT ── */}
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>IMPORT</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.data.importTitle')}</Text>
       <Text style={styles.hint}>
-        Supports Myriad SLS (.SLS_AmbiancesDigest) and DMX Improvisator (.dmximp.json)
+        {t('settings.data.importHint')}
       </Text>
       <View style={styles.card}>
-        <Text style={styles.dialogLabel}>Import mode</Text>
+        <Text style={styles.dialogLabel}>{t('settings.data.importMode')}</Text>
         <View style={styles.radioRow}>
           <Pressable style={styles.radioOption} onPress={() => setImportMode('merge')}>
             <RadioButton value="merge" status={importMode === 'merge' ? 'checked' : 'unchecked'} color="#ff6b35" onPress={() => setImportMode('merge')} />
             <View>
-              <Text style={styles.radioLabel}>Merge</Text>
-              <Text style={styles.radioHint}>Add new items, keep existing</Text>
+              <Text style={styles.radioLabel}>{t('settings.data.merge')}</Text>
+              <Text style={styles.radioHint}>{t('settings.data.mergeHint')}</Text>
             </View>
           </Pressable>
           <Pressable style={styles.radioOption} onPress={() => setImportMode('replace')}>
             <RadioButton value="replace" status={importMode === 'replace' ? 'checked' : 'unchecked'} color="#ff6b35" onPress={() => setImportMode('replace')} />
             <View>
-              <Text style={styles.radioLabel}>Replace all</Text>
-              <Text style={styles.radioHint}>Overwrite everything</Text>
+              <Text style={styles.radioLabel}>{t('settings.data.replaceAll')}</Text>
+              <Text style={styles.radioHint}>{t('settings.data.replaceAllHint')}</Text>
             </View>
           </Pressable>
         </View>
@@ -848,13 +948,13 @@ function DataTab() {
           icon="folder-open" mode="contained" onPress={handleImportFile} loading={busy}
           disabled={busy} style={styles.dataBtn} contentStyle={styles.dataBtnContent}
         >
-          Import from File
+          {t('settings.data.importFromFile')}
         </Button>
         <Button
           icon="clipboard-text" mode="outlined" onPress={handlePasteClipboard} loading={busy}
           disabled={busy} style={styles.dataBtnOutline} contentStyle={styles.dataBtnContent}
         >
-          Paste from Clipboard
+          {t('settings.data.pasteFromClipboard')}
         </Button>
       </View>
 
@@ -868,12 +968,11 @@ function DataTab() {
       )}
 
       {/* ── DANGER ZONE ── */}
-      <Text style={[styles.sectionTitle, { marginTop: 24, color: '#7a2020' }]}>DANGER ZONE</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24, color: '#7a2020' }]}>{t('settings.data.dangerZone')}</Text>
       <View style={[styles.card, styles.dangerCard]}>
-        <Text style={styles.dialogLabel}>Factory Reset</Text>
+        <Text style={styles.dialogLabel}>{t('settings.data.factoryReset')}</Text>
         <Text style={styles.hint}>
-          Deletes all custom ambiances, categories, and configured lights, then restores the
-          original 4 fixtures (11ch Dim16 mode) and factory presets. Network settings are kept.
+          {t('settings.data.factoryResetHint')}
         </Text>
         <Button
           icon="restore"
@@ -883,7 +982,7 @@ function DataTab() {
           contentStyle={styles.dataBtnContent}
           textColor="#e74c3c"
         >
-          Reset to Factory Defaults
+          {t('settings.data.factoryResetButton')}
         </Button>
       </View>
 
@@ -893,9 +992,97 @@ function DataTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TUTORIAL TAB — static illustrated how-to-use guide + language switcher
+// ─────────────────────────────────────────────────────────────────────────────
+const TUTORIAL_SECTIONS: Array<{ key: HelpSection; icon: string }> = [
+  { key: 'control', icon: 'lightbulb-on-outline' },
+  { key: 'editor', icon: 'palette-outline' },
+  { key: 'network', icon: 'wifi' },
+  { key: 'lights', icon: 'lightbulb-group-outline' },
+  { key: 'backup', icon: 'archive-outline' },
+  { key: 'troubleshooting', icon: 'lifebuoy' },
+]
+
+function TutorialTab() {
+  const { t, i18n: i18next } = useTranslation()
+  const language = useSettingsStore((s) => s.language)
+  const setLanguage = useSettingsStore((s) => s.setLanguage)
+  const [expanded, setExpanded] = useState<HelpSection | null>('network')
+
+  function selectLanguage(lang: AppLanguage) {
+    setLanguage(lang)
+    i18next.changeLanguage(lang)
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.tabContent}>
+      <Text style={styles.sectionTitle}>{t('settings.tutorial.language')}</Text>
+      <View style={styles.langRow}>
+        <Pressable
+          style={[styles.langChip, language === 'fr' && styles.langChipActive]}
+          onPress={() => selectLanguage('fr')}
+        >
+          <Text style={[styles.langChipLabel, language === 'fr' && styles.langChipLabelActive]}>🇫🇷 Français</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.langChip, language === 'en' && styles.langChipActive]}
+          onPress={() => selectLanguage('en')}
+        >
+          <Text style={[styles.langChipLabel, language === 'en' && styles.langChipLabelActive]}>🇬🇧 English</Text>
+        </Pressable>
+      </View>
+
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.tutorial.title')}</Text>
+      <Text style={styles.hint}>{t('settings.tutorial.intro')}</Text>
+
+      {/* ── Quick start checklist ── */}
+      <View style={styles.card}>
+        <Text style={styles.dialogLabel}>{t('settings.tutorial.quickStart.title')}</Text>
+        {(t('settings.tutorial.quickStart.items', { returnObjects: true }) as unknown as string[]).map((item, i) => (
+          <View key={i} style={styles.checklistRow}>
+            <View style={styles.checklistNum}><Text style={styles.checklistNumText}>{i + 1}</Text></View>
+            <Text style={styles.checklistText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* ── Full guide, one accordion section per screen ── */}
+      <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 8 }]}>{t('settings.tabs.tutorial').toUpperCase()}</Text>
+      {TUTORIAL_SECTIONS.map(({ key, icon }) => {
+        const isOpen = expanded === key
+        const points = t(`settings.tutorial.sections.${key}.points`, { returnObjects: true }) as unknown as string[]
+        return (
+          <View key={key} style={[styles.card, styles.tutorialCard]}>
+            <Pressable style={styles.tutorialAccordionHeader} onPress={() => setExpanded(isOpen ? null : key)}>
+              <IconButton icon={icon} size={20} iconColor="#ff6b35" style={{ margin: 0 }} />
+              <Text style={styles.tutorialStepTitle}>{t(`settings.tutorial.sections.${key}.title`)}</Text>
+              <IconButton icon={isOpen ? 'chevron-up' : 'chevron-down'} size={20} iconColor="#666" style={{ margin: 0 }} />
+            </Pressable>
+            {isOpen && (
+              <View style={styles.tutorialAccordionBody}>
+                <Text style={styles.tutorialStepBody}>{t(`settings.tutorial.sections.${key}.intro`)}</Text>
+                {Array.isArray(points) && points.map((p, i) => (
+                  <View key={i} style={styles.pointRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <Text style={styles.pointText}>{p}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )
+      })}
+
+      <View style={{ height: 24 }} />
+    </ScrollView>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ZONE EDITOR (inside Lights tab scroll)
 // ─────────────────────────────────────────────────────────────────────────────
 function ZoneEditor() {
+  const { t } = useTranslation()
   const { zones, zonesEnabled, setZonesEnabled, renameZone, resetZones } = useZonesStore()
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -912,13 +1099,13 @@ function ZoneEditor() {
   return (
     <View style={styles.zoneSection}>
       <View style={styles.zoneSectionHeader}>
-        <Text style={styles.sectionTitle}>STAGE ZONES</Text>
+        <Text style={styles.sectionTitle}>{t('settings.lights.stageZones')}</Text>
         <View style={styles.zoneSectionRight}>
           <Switch value={zonesEnabled} onValueChange={setZonesEnabled} color="#ff6b35" />
-          <Button mode="text" compact onPress={resetZones} style={{ marginLeft: 4 }}>Reset</Button>
+          <Button mode="text" compact onPress={resetZones} style={{ marginLeft: 4 }}>{t('common.reset')}</Button>
         </View>
       </View>
-      <Text style={styles.hint}>Rename zones to match your stage layout.</Text>
+      <Text style={styles.hint}>{t('settings.lights.stageZonesHint')}</Text>
       {zonesEnabled && zones.map((zone) => (
         <View key={zone.id} style={styles.zoneRow}>
           <View style={[styles.zoneColorBar, { backgroundColor: zone.border }]} />
@@ -967,28 +1154,28 @@ function findOverlappingLightIds(lights: Light[]): Set<string> {
   return overlapping
 }
 
-function rotationLabel(deg: number): string {
+function rotationLabel(deg: number, t: (key: string, opts?: any) => string): string {
   // -180..180 range: 0 = audience, ±180 = back
   const a = Math.abs(deg)
-  if (a < 22)  return '↓ Audience'
+  if (a < 22)  return t('settings.lights.rotation.audience')
   if (deg > 0) {
     if (deg < 67)  return '↙'
-    if (deg < 112) return '← Left'
+    if (deg < 112) return t('settings.lights.rotation.left')
     if (deg < 157) return '↖'
-    return '↑ Back'
+    return t('settings.lights.rotation.back')
   } else {
     if (deg > -67)  return '↘'
-    if (deg > -112) return '→ Right'
+    if (deg > -112) return t('settings.lights.rotation.right')
     if (deg > -157) return '↗'
-    return '↑ Back'
+    return t('settings.lights.rotation.back')
   }
 }
 
-function beamWidthLabel(v: number): string {
-  if (v < 0.65) return `Tight spot (${v.toFixed(1)}×)`
-  if (v < 1.15) return `Medium (${v.toFixed(1)}×)`
-  if (v < 1.75) return `Wide (${v.toFixed(1)}×)`
-  return `Full wash (${v.toFixed(1)}×)`
+function beamWidthLabel(v: number, t: (key: string, opts?: any) => string): string {
+  if (v < 0.65) return t('settings.lights.beamWidthLabel.tight', { v: v.toFixed(1) })
+  if (v < 1.15) return t('settings.lights.beamWidthLabel.medium', { v: v.toFixed(1) })
+  if (v < 1.75) return t('settings.lights.beamWidthLabel.wide', { v: v.toFixed(1) })
+  return t('settings.lights.beamWidthLabel.full', { v: v.toFixed(1) })
 }
 
 function delay(ms: number) {
@@ -1003,6 +1190,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 1.5 },
   hint: { fontSize: 12, color: '#444', marginBottom: 12 },
+  tabHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
   card: { backgroundColor: '#141414', borderRadius: 14, padding: 16, gap: 10 },
   input: { backgroundColor: 'transparent' },
@@ -1054,7 +1242,40 @@ const styles = StyleSheet.create({
   lightRowMetaWarn: { color: '#e74c3c' },
   emptyHint: { color: '#444', fontSize: 13, textAlign: 'center', marginTop: 16 },
 
+  bulkDivider: { height: 1, backgroundColor: '#262626', marginVertical: 16 },
   editScrollArea: { maxHeight: 420 },
+
+  // ── Tutorial tab ──
+  langRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  langChip: {
+    flex: 1, backgroundColor: '#1e1e1e', borderRadius: 10, paddingVertical: 10,
+    alignItems: 'center', borderWidth: 1, borderColor: '#333',
+  },
+  langChipActive: { borderColor: '#ff6b35', backgroundColor: 'rgba(255,107,53,0.1)' },
+  langChipLabel: { fontSize: 14, fontWeight: '700', color: '#888' },
+  langChipLabelActive: { color: '#ff6b35' },
+  tutorialStepHeader: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 4 },
+  tutorialStepTitle: { fontSize: 14, fontWeight: '700', color: '#fff', flex: 1 },
+  tutorialStepBody: { fontSize: 13, color: '#aaa', lineHeight: 19, marginBottom: 8 },
+  tutorialExampleBox: {
+    marginTop: 10, padding: 10, borderRadius: 8,
+    backgroundColor: 'rgba(255,107,53,0.08)',
+    borderLeftWidth: 3, borderLeftColor: '#ff6b35',
+  },
+  tutorialExampleText: { fontSize: 12, color: '#ff6b35', lineHeight: 17 },
+  tutorialCard: { padding: 0, marginBottom: 10, overflow: 'hidden' },
+  tutorialAccordionHeader: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 2 },
+  tutorialAccordionBody: { paddingHorizontal: 14, paddingBottom: 12 },
+  pointRow: { flexDirection: 'row', gap: 8, marginBottom: 6, paddingRight: 4 },
+  bullet: { color: '#ff6b35', fontSize: 13, lineHeight: 18 },
+  pointText: { flex: 1, fontSize: 12.5, color: '#ccc', lineHeight: 18 },
+  checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  checklistNum: {
+    width: 22, height: 22, borderRadius: 11, backgroundColor: '#ff6b35',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checklistNumText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  checklistText: { flex: 1, fontSize: 13, color: '#ddd' },
   dialogInput: { backgroundColor: 'transparent', marginBottom: 8 },
   dialogLabel: { fontSize: 12, color: '#888', marginBottom: 6 },
   modeBtn: { marginBottom: 4 },

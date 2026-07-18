@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { Text } from 'react-native-paper'
+import { useTranslation } from 'react-i18next'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS } from 'react-native-reanimated'
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
@@ -29,6 +30,7 @@ interface Props {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export function WheelColorPicker({ currentHex, onColorChange }: Props) {
+  const { t } = useTranslation()
   const cx = SIZE / 2
   const cy = SIZE / 2
   const r  = SIZE / 2 - PAD
@@ -134,7 +136,7 @@ export function WheelColorPicker({ currentHex, onColorChange }: Props) {
 
       {/* Brightness (Value) slider */}
       <View style={styles.row}>
-        <Text style={styles.label}>Brightness</Text>
+        <Text style={styles.label}>{t('components.wheelColorPicker.brightness')}</Text>
         <Text style={[styles.label, { color: '#fff', fontWeight: '700' }]}>
           {Math.round(hsv.v * 100)}%
         </Text>

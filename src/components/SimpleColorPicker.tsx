@@ -1,6 +1,7 @@
 import React from 'react'
 import { StyleSheet, View, Pressable, ScrollView } from 'react-native'
 import { Text } from 'react-native-paper'
+import { useTranslation } from 'react-i18next'
 import { DEFAULT_COLORS } from '../constants/defaultColors'
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function SimpleColorPicker({ onSelectColor, selectedHex }: Props) {
+  const { t } = useTranslation()
   return (
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -32,7 +34,7 @@ export function SimpleColorPicker({ onSelectColor, selectedHex }: Props) {
       <View style={styles.labels}>
         {DEFAULT_COLORS.map((color) => (
           <Text key={color.hex} style={styles.label} numberOfLines={1}>
-            {color.label}
+            {t(`colors.${color.label}`, color.label)}
           </Text>
         ))}
       </View>

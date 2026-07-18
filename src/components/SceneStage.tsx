@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { View, Text, StyleSheet, TextInput } from 'react-native'
+import { useTranslation } from 'react-i18next'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap }: Props) {
+  const { t } = useTranslation()
   const [stageW, setStageW] = useState(1)
   const { zones, zonesEnabled } = useZonesStore()
 
@@ -115,12 +117,12 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
         {stageW > 1 && <GridOverlay stageW={stageW} />}
 
         <View style={styles.audienceBar}>
-          <Text style={styles.audienceLabel}>▲  AUDIENCE  ▲</Text>
+          <Text style={styles.audienceLabel}>{t('components.sceneStage.audience')}</Text>
         </View>
 
         {lights.length === 0 && (
           <View style={styles.emptyMsg}>
-            <Text style={styles.emptyText}>Add lights below to see them here</Text>
+            <Text style={styles.emptyText}>{t('components.sceneStage.emptyHint')}</Text>
           </View>
         )}
 
@@ -150,7 +152,7 @@ export function SceneStage({ lights, activeLightStates, onLightMove, onLightTap 
             )
           })}
       </View>
-      <Text style={styles.hint}>Drag lights to reposition · Tap to configure</Text>
+      <Text style={styles.hint}>{t('components.sceneStage.dragHint')}</Text>
     </View>
   )
 }

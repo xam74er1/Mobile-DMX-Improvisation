@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native'
 import { Text, Switch } from 'react-native-paper'
 import { MaterialIcons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 import Slider from './AppSlider'
 import { EFFECT_PRESETS, type RGBW } from '../effects/presets'
 import { effectsRunner, type AmbianceEffect } from '../effects/runner'
@@ -16,6 +17,7 @@ interface EffectColors {
 }
 
 export function EffectsBar() {
+  const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [bpm, setBpm] = useState(120)
   const [repeat, setRepeat] = useState(true)
@@ -76,7 +78,7 @@ export function EffectsBar() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>EFFECTS</Text>
+        <Text style={styles.title}>{t('components.effectsBar.title')}</Text>
         {activeId && (
           <Pressable
             onPress={() => {
@@ -86,7 +88,7 @@ export function EffectsBar() {
             style={styles.stopBtn}
           >
             <MaterialIcons name="stop" size={14} color="#fff" />
-            <Text style={styles.stopBtnText}>STOP</Text>
+            <Text style={styles.stopBtnText}>{t('components.effectsBar.stop')}</Text>
           </Pressable>
         )}
       </View>
@@ -102,7 +104,7 @@ export function EffectsBar() {
               style={[styles.presetBtn, isActive && styles.presetBtnActive]}
             >
               <MaterialIcons name={preset.icon as any} size={22} color={isActive ? '#fff' : '#aaa'} />
-              <Text style={[styles.presetName, isActive && styles.presetNameActive]}>{preset.name}</Text>
+              <Text style={[styles.presetName, isActive && styles.presetNameActive]}>{t(`effects.${preset.id}`, preset.name)}</Text>
             </Pressable>
           )
         })}
@@ -114,12 +116,12 @@ export function EffectsBar() {
           {selectedPreset.kind === 'alternate' ? (
             <>
               <ColorRow
-                label="A"
+                label={t('components.effectsBar.colorA')}
                 current={activeColors.fromColor ?? selectedPreset.color}
                 onSelect={(c) => setColor('fromColor', c)}
               />
               <ColorRow
-                label="B"
+                label={t('components.effectsBar.colorB')}
                 current={activeColors.colorB ?? selectedPreset.colorB ?? selectedPreset.color}
                 onSelect={(c) => setColor('colorB', c)}
               />
@@ -127,19 +129,19 @@ export function EffectsBar() {
           ) : selectedPreset.kind === 'color_transition' ? (
             <>
               <ColorRow
-                label="From"
+                label={t('components.effectsBar.from')}
                 current={activeColors.fromColor ?? selectedPreset.color}
                 onSelect={(c) => setColor('fromColor', c)}
               />
               <ColorRow
-                label="To"
+                label={t('components.effectsBar.to')}
                 current={activeColors.toColor ?? selectedPreset.defaultToColor ?? selectedPreset.color}
                 onSelect={(c) => setColor('toColor', c)}
               />
             </>
           ) : (
             <ColorRow
-              label="Color"
+              label={t('components.effectsBar.color')}
               current={activeColors.fromColor ?? selectedPreset.color}
               onSelect={(c) => setColor('fromColor', c)}
             />
@@ -150,13 +152,13 @@ export function EffectsBar() {
       {/* BPM + Repeat controls */}
       <View style={styles.controls}>
         <View style={styles.repeatRow}>
-          <Text style={styles.controlLabel}>Repeat</Text>
+          <Text style={styles.controlLabel}>{t('components.effectsBar.repeat')}</Text>
           <Switch value={repeat} onValueChange={setRepeat} color="#ff6b35" />
         </View>
 
         {(!selectedPreset || selectedPreset.bpmScaled) && (
           <View style={styles.bpmRow}>
-            <Text style={styles.controlLabel}>BPM</Text>
+            <Text style={styles.controlLabel}>{t('components.effectsBar.bpm')}</Text>
             <Text style={styles.bpmValue}>{bpm}</Text>
             <Slider
               value={bpm}
