@@ -199,9 +199,17 @@ function buildArtPollPacket(): Buffer {
   return packet
 }
 
-/** Parses an ArtPollReply (OpCode 0x2100); returns null if `buf` isn't one. */
+/**
+ * Parses an ArtPollReply (OpCode 0x2100); returns null if `buf` isn't one.
+ * Only requires the 10-byte header + opcode — some budget Art-Net-over-WiFi
+ * nodes (including the Eurolite FreeDMX AP) send a reply shorter than the
+ * spec's full 239-byte body. The IP comes from the UDP sender address, not
+ * the packet body, so a short/truncated reply still identifies the node;
+ * readNullTerminatedAscii below is bounds-checked and just yields '' for
+ * name fields past the end of a short buffer.
+ */
 function parseArtPollReply(buf: Buffer, sourceIp: string): DiscoveredArtNetNode | null {
-  if (buf.length < 108) return null
+  if (buf.length < 10) return null
   if (buf.toString('ascii', 0, 7) !== 'Art-Net') return null
   const opcode = buf[8] | (buf[9] << 8)
   if (opcode !== 0x2100) return null

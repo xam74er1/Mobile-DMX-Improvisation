@@ -182,12 +182,18 @@
 
     "connection": {
       "sectionTitle": "DMX RECEIVER",
-      "defaultsHint": "Eurolite FreeDMX AP defaults: IP 2.0.0.1 · Port 6454 · Universe 0",
+      "defaultsHint": "Eurolite FreeDMX AP defaults: IP 192.168.4.1 · Port 10100 · Universe 0. If a unit's port was changed, check it at the device's own web config, http://192.168.4.1 → General.",
       "quickPreset": "Quick Preset",
       "presetShow": "Show",
       "presetLocal": "Local",
       "ipLabel": "Receiver IP Address",
-      "portLabel": "UDP Port",
+      "transportLabel": "Transport",
+      "transportUdp": "UDP",
+      "transportWs": "WebSocket",
+      "transportHttp": "HTTP",
+      "transportHintUdp": "Sends real Art-Net UDP straight to the receiver at the IP/port below. Default on Android/iOS.",
+      "transportHintBridge": "Relays through the desktop visualizer bridge instead of a real receiver — set the port below to match the bridge (WebSocket 8080, HTTP 8081). Default on Web, since browsers can't send raw UDP; also selectable on Android/iOS to test against the bridge.",
+      "portLabel": "Port",
       "universeLabel": "Art-Net Universe (0–255)",
       "successMsg": "✓ Blink sent — lights should have flashed twice",
       "errorMsg": "✗ Send failed — check IP and WiFi connection",
@@ -197,7 +203,7 @@
       "scanButton": "Scan Network",
       "webNotSupported": "Not available on Web — use the Android/iOS app to scan.",
       "scanning": "Scanning…",
-      "noNodesFound": "No nodes found yet — tap Scan while on the same WiFi as your receiver.",
+      "noNodesFound": "No nodes found yet — tap Scan while on the same WiFi as your receiver. Some Art-Net-over-WiFi adapters (including the Eurolite FreeDMX AP) never reply to scans; if yours doesn't show up, just use the \"Show\" preset or type its IP directly.",
       "nodeFallbackName": "Art-Net Node"
     },
 
@@ -341,10 +347,10 @@
           "intro": "The #1 cause of \"nothing lights up\": the phone isn't on the same WiFi network as the DMX receiver. Read this before your first show.",
           "points": [
             "In a real show setup: the Eurolite FreeDMX AP receiver creates its own WiFi access point (it has no internet access — that's normal). Join THAT WiFi network from your phone — not your usual home/venue WiFi.",
-            "Once connected to its network, open Settings → Connection and try the \"Show\" preset (192.168.4.1). If lights don't respond, try the receiver's factory default IP, 2.0.0.1, or use Scan Network to detect it automatically.",
+            "Once connected to its network, open Settings → Connection and try the \"Show\" preset (192.168.4.1) — that's the receiver's factory IP, and it should already be selected by default. If lights don't respond, use Scan Network to try to detect it automatically (many low-cost Art-Net-over-WiFi receivers, including this one, don't answer scans at all — that's expected, not a bug).",
             "\"Local\" preset (127.0.0.1): only useful when testing the app in a browser on the same computer as the desktop visualizer (dmx-visualizer). On a real phone, 127.0.0.1 refers to the phone itself — it will never reach real fixtures.",
             "To rehearse without real fixtures: run the desktop visualizer on your computer, connect your phone to the same WiFi as that computer, then enter that computer's local network IP (shown by the visualizer, e.g. 192.168.1.42) — not the Local preset.",
-            "UDP Port: 6454 (standard Art-Net, almost never changes). Art-Net Universe: 0 by default on both sides — must match on the receiver and in the app.",
+            "Port: the app defaults to 10100, the FreeDMX AP's own factory UDP port. If a unit's port was changed from factory, check it at the device's own web config (http://192.168.4.1 → General) and match it here. Art-Net Universe: 0 by default on both sides — must match on the receiver and in the app.",
             "Test Connection (Blink) sends two flashes to every configured light. If the app says \"sent\" but nothing blinks, the problem is on the receiver's side (wrong IP, wrong DMX mode, wrong address) — not the app.",
             "Scan Network broadcasts an ArtPoll and lists every Art-Net receiver that answers on the current WiFi — handy for finding the right IP without knowing it in advance. Not available on Web, only on the Android/iOS app.",
             "On Web (browser), no real DMX data is ever sent — that's expected; only the Android/iOS app drives real fixtures."

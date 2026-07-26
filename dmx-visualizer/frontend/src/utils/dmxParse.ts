@@ -1,7 +1,7 @@
 export type FixtureMode =
   | 'RGB' | 'RGBW' | 'Dim+RGB' | 'Dim+RGBW'
   | 'RGBA' | 'RGBWA' | 'Dim+RGBA' | 'Dim+RGBWA'
-  | 'RGBWA+UV' | 'Dim+RGBWA+UV'
+  | 'RGBWA+UV' | 'Dim+RGBWA+UV' | 'Dim16+RGBWA+UV'
 
 /** Parse raw DMX channels for a fixture and return final RGB display values (0-255 each). */
 export function parseDMX(mode: FixtureMode, universe: number[], start: number) {
@@ -79,6 +79,18 @@ export function parseDMX(mode: FixtureMode, universe: number[], start: number) {
       w = universe[start + 5] || 0
       a = universe[start + 6] || 0
       uv = universe[start + 7] || 0
+      break
+    // CAMEO ROOT PAR 6: 11CH — Dim(coarse),Dim(fine),Strobe,R,G,B,W,A,UV,Macro,MacroSpeed
+    case 'Dim16+RGBWA+UV':
+      dim = universe[start] || 0
+      // universe[start+1] is dim fine, universe[start+2] is strobe — skip for display
+      r = universe[start + 3] || 0
+      g = universe[start + 4] || 0
+      b = universe[start + 5] || 0
+      w = universe[start + 6] || 0
+      a = universe[start + 7] || 0
+      uv = universe[start + 8] || 0
+      // universe[start+9] macro, universe[start+10] macro speed — skip for display
       break
   }
 

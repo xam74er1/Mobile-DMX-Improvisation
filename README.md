@@ -62,10 +62,10 @@ This builds a **development APK** with native modules (including the UDP socket 
 
 ## Connect to Eurolite FreeDMX AP
 
-1. On your phone, connect to the Eurolite AP's WiFi network (it creates its own hotspot)
-2. Open the app → **Settings** tab
-3. Set **Receiver IP** to `2.0.0.1` (Eurolite default)
-4. Leave **Port** at `6454` and **Universe** at `0`
+1. On your phone, connect to the Eurolite AP's WiFi network — it creates its own unencrypted hotspot named `freeDMX_AP_xxxxxx`
+2. Open the app → **Settings** tab — the defaults (`192.168.4.1`, port `10100`) already match a factory-fresh unit, so this should just work
+3. If it doesn't, check the device's own web config at `http://192.168.4.1` (while connected to its WiFi) → **General** tab → **UDP-Port** — if that unit's port was ever changed from the factory `10100`, Settings → Connection → Port here needs to match it exactly
+4. Leave **Universe** at `0`
 5. Tap **Test Connection (Blink)** — your lights should flash twice
 
 ---
@@ -143,7 +143,7 @@ To swap the DMX protocol: implement `IDMXClient` in a new file, update `src/dmx/
 
 | Problem | Fix |
 |---------|-----|
-| Lights don't respond | Check phone is on Eurolite WiFi, IP is 2.0.0.1, test connection blinks |
+| Lights don't respond | Check phone is on Eurolite WiFi, IP is 192.168.4.1, port matches the device's own UDP-Port setting (app defaults to the factory `10100`), test connection blinks |
 | Build fails | Ensure Node 18+: `node --version` |
 | `react-native-udp` error on web | Expected — UDP is disabled on web (use Android build) |
 | First build is slow | Normal — Gradle downloads on first run |

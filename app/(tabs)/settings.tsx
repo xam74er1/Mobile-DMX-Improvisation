@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { ScrollView, StyleSheet, View, Alert, Pressable } from 'react-native'
+import { ScrollView, StyleSheet, View, Alert, Pressable, Platform } from 'react-native'
 import Slider from '../../src/components/AppSlider'
 import {
   Text, TextInput, Button, IconButton, Portal, Dialog,
@@ -11,7 +11,7 @@ import { SceneStage } from '../../src/components/SceneStage'
 import { HelpButton, type HelpSection } from '../../src/components/HelpButton'
 import { useLightsStore, DEFAULT_LIGHTS, type Light, type LightColor } from '../../src/store/lightsStore'
 import { useZonesStore } from '../../src/store/zonesStore'
-import { useSettingsStore, type AppLanguage } from '../../src/store/settingsStore'
+import { useSettingsStore, TRANSPORT_DEFAULT_PORT, type AppLanguage, type Transport } from '../../src/store/settingsStore'
 import {
   useAmbiancesStore, type LightState,
   DEFAULT_AMBIANCES, DEFAULT_CATEGORIES,
@@ -77,9 +77,11 @@ function ConnectionTab() {
   const receiverPort = useSettingsStore((s) => s.receiverPort)
   const universe = useSettingsStore((s) => s.universe)
   const masterIntensity = useSettingsStore((s) => s.masterIntensity)
+  const transport = useSettingsStore((s) => s.transport)
   const setReceiverIp = useSettingsStore((s) => s.setReceiverIp)
   const setReceiverPort = useSettingsStore((s) => s.setReceiverPort)
   const setUniverse = useSettingsStore((s) => s.setUniverse)
+  const setTransport = useSettingsStore((s) => s.setTransport)
   const lights = useLightsStore((s) => s.lights)
 
   const [ipInput, setIpInput] = useState(receiverIp)
@@ -111,7 +113,7 @@ function ConnectionTab() {
   function commitIp() { setReceiverIp(ipInput.trim() || receiverIp) }
   function commitPort() {
     const n = parseInt(portInput, 10)
-    if (n > 0 && n < 65536) setReceiverPort(n)
+    if (n >= 0 && n < 65536) setReceiverPort(n)
     else setPortInput(String(receiverPort))
   }
   function commitUniverse() {
@@ -190,6 +192,34 @@ function ConnectionTab() {
           style={styles.input}
           left={<TextInput.Icon icon="wifi" />}
         />
+
+        <Text style={styles.dialogLabel}>{t('settings.connection.transportLabel')}</Text>
+        <SegmentedButtons
+          value={transport}
+          onValueChange={(v) => {
+            const next = v as Transport
+            setTransport(next)
+            // Nudge the port to the new transport's default, but only if it
+            // still holds a *different* transport's default — never clobber
+            // a port the user typed in themselves.
+            const currentPort = parseInt(portInput, 10)
+            const isKnownDefault = Object.values(TRANSPORT_DEFAULT_PORT).includes(currentPort)
+            if (isKnownDefault && currentPort !== TRANSPORT_DEFAULT_PORT[next]) {
+              setPortInput(String(TRANSPORT_DEFAULT_PORT[next]))
+              setReceiverPort(TRANSPORT_DEFAULT_PORT[next])
+            }
+          }}
+          buttons={[
+            ...(Platform.OS !== 'web' ? [{ value: 'udp', label: t('settings.connection.transportUdp') }] : []),
+            { value: 'ws', label: t('settings.connection.transportWs') },
+            { value: 'http', label: t('settings.connection.transportHttp') },
+          ]}
+          style={styles.input}
+        />
+        <Text style={styles.hint}>
+          {transport === 'udp' ? t('settings.connection.transportHintUdp') : t('settings.connection.transportHintBridge')}
+        </Text>
+
         <TextInput
           label={t('settings.connection.portLabel')}
           value={portInput}

@@ -182,12 +182,18 @@
 
     "connection": {
       "sectionTitle": "RÉCEPTEUR DMX",
-      "defaultsHint": "Eurolite FreeDMX AP par défaut : IP 2.0.0.1 · Port 6454 · Universe 0",
+      "defaultsHint": "Eurolite FreeDMX AP par défaut : IP 192.168.4.1 · Port 10100 · Universe 0. Si le port de votre appareil a été modifié, vérifiez-le dans sa propre configuration web, http://192.168.4.1 → Général.",
       "quickPreset": "Préréglage rapide",
       "presetShow": "Spectacle",
       "presetLocal": "Local",
       "ipLabel": "Adresse IP du récepteur",
-      "portLabel": "Port UDP",
+      "transportLabel": "Transport",
+      "transportUdp": "UDP",
+      "transportWs": "WebSocket",
+      "transportHttp": "HTTP",
+      "transportHintUdp": "Envoie de l'Art-Net UDP réel directement au récepteur, à l'IP/port ci-dessous. Par défaut sur Android/iOS.",
+      "transportHintBridge": "Relaie via le pont du visualiseur de bureau au lieu d'un vrai récepteur — réglez le port ci-dessous en conséquence (WebSocket 8080, HTTP 8081). Par défaut sur le Web, car un navigateur ne peut pas envoyer d'UDP brut ; aussi sélectionnable sur Android/iOS pour tester avec le pont.",
+      "portLabel": "Port",
       "universeLabel": "Universe Art-Net (0–255)",
       "successMsg": "✓ Clignotement envoyé — les lumières auraient dû clignoter deux fois",
       "errorMsg": "✗ Échec de l'envoi — vérifiez l'IP et la connexion WiFi",
@@ -197,7 +203,7 @@
       "scanButton": "Scanner le réseau",
       "webNotSupported": "Non disponible sur le Web — utilisez l'app Android/iOS pour scanner.",
       "scanning": "Recherche en cours…",
-      "noNodesFound": "Aucun appareil trouvé pour l'instant — appuyez sur Scanner en étant sur le même WiFi que votre récepteur.",
+      "noNodesFound": "Aucun appareil trouvé pour l'instant — appuyez sur Scanner en étant sur le même WiFi que votre récepteur. Certains adaptateurs Art-Net WiFi (dont l'Eurolite FreeDMX AP) ne répondent jamais au scan ; si le vôtre n'apparaît pas, utilisez simplement le préréglage « Spectacle » ou saisissez son IP directement.",
       "nodeFallbackName": "Nœud Art-Net"
     },
 
@@ -341,10 +347,10 @@
           "intro": "La cause n°1 de « rien ne s'allume » : le téléphone n'est pas sur le même réseau WiFi que le récepteur DMX. Lisez cette section avant votre premier show.",
           "points": [
             "En configuration spectacle réelle : le récepteur Eurolite FreeDMX AP crée son propre point d'accès WiFi (il n'a pas accès à Internet, c'est normal). Rejoignez CE réseau WiFi depuis votre téléphone — pas votre WiFi habituel de salle ou de maison.",
-            "Une fois connecté à son réseau, ouvrez Réglages → Connexion et essayez le préréglage « Spectacle » (192.168.4.1). Si les lumières ne répondent pas, essayez l'adresse IP par défaut du récepteur, 2.0.0.1, ou utilisez Scanner le réseau pour la détecter automatiquement.",
+            "Une fois connecté à son réseau, ouvrez Réglages → Connexion et essayez le préréglage « Spectacle » (192.168.4.1) — c'est l'IP d'usine du récepteur, déjà sélectionnée par défaut. Si les lumières ne répondent pas, utilisez Scanner le réseau pour essayer de le détecter automatiquement (beaucoup d'adaptateurs Art-Net WiFi bas de gamme, dont celui-ci, ne répondent jamais au scan — c'est normal, pas un bug).",
             "Préréglage « Local » (127.0.0.1) : uniquement utile quand vous testez l'app dans un navigateur sur le même ordinateur que le visualiseur de bureau (dmx-visualizer). Sur un vrai téléphone, 127.0.0.1 désigne le téléphone lui-même — ça ne fonctionnera jamais avec de vrais projecteurs.",
             "Pour répéter sans les vrais projecteurs : lancez le visualiseur de bureau sur votre ordinateur, connectez votre téléphone au même WiFi que cet ordinateur, puis entrez l'adresse IP locale de l'ordinateur (affichée par le visualiseur, ex. 192.168.1.42) — pas le préréglage Local.",
-            "Port UDP : 6454 (standard Art-Net, ne changez presque jamais). Universe Art-Net : 0 par défaut des deux côtés — doit être identique sur le récepteur et dans l'app.",
+            "Port : l'app utilise par défaut 10100, le port UDP d'usine du FreeDMX AP. Si le port d'un appareil a été modifié depuis l'usine, vérifiez-le dans sa propre configuration web (http://192.168.4.1 → Général) et faites-le correspondre ici. Universe Art-Net : 0 par défaut des deux côtés — doit être identique sur le récepteur et dans l'app.",
             "Tester la connexion (clignotement) envoie deux flashs à toutes les lumières configurées. Si l'app dit « envoyé » mais que rien ne clignote, le problème est côté récepteur (mauvaise IP, mauvais mode DMX, mauvaise adresse) — pas côté app.",
             "Scanner le réseau diffuse une requête ArtPoll et liste tout récepteur Art-Net qui répond sur le WiFi actuel — pratique pour trouver la bonne IP sans la connaître à l'avance. Non disponible sur le Web, seulement sur l'app Android/iOS.",
             "Sur le Web (navigateur), aucune donnée DMX réelle n'est envoyée — c'est normal, seule l'app Android/iOS pilote de vrais projecteurs."

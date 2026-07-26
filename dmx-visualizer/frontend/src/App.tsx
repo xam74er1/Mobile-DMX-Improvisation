@@ -105,6 +105,7 @@ function App() {
                       <option value="Dim+RGBWA">Dim+RGBWA (6ch)</option>
                       <option value="RGBWA+UV">RGBWA+UV (6ch) — Cameo ROOT PAR 6</option>
                       <option value="Dim+RGBWA+UV">Dim+RGBWA+UV (8ch) — Cameo ROOT PAR 6</option>
+                      <option value="Dim16+RGBWA+UV">Dim16+RGBWA+UV (11ch) — Cameo ROOT PAR 6</option>
                     </select>
                   </div>
                   <button 

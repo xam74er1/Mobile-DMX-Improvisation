@@ -5,9 +5,11 @@ import socket
 import sys
 import threading
 import webbrowser
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import websockets
+
+HTTP_DMX_PORT = 8081  # separate from the WS port (8080) — pick whichever matches the app's transport setting
 
 
 def get_local_ip() -> str:
@@ -171,6 +173,59 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
             asyncio.create_task(self.dmx_server.broadcast_dmx())
 
 
+def serve_http_dmx(dmx_server: 'DMXServer', loop: asyncio.AbstractEventLoop, port: int = HTTP_DMX_PORT):
+    """HTTP counterpart to the WebSocket SEND_DMX message, for the app's
+    'HTTP' web transport option. POST /dmx with the same JSON body the
+    WebSocket protocol uses: {"type": "SEND_DMX", "universe": N, "data": [...]}.
+    Runs in its own thread (stdlib http.server), so DMX-state mutation is
+    handed back to the asyncio loop via run_coroutine_threadsafe.
+    """
+    class DMXHTTPHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def _cors(self):
+            self.send_header('Access-Control-Allow-Origin', '*')
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self._cors()
+            self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.end_headers()
+
+        def do_POST(self):
+            if self.path != '/dmx':
+                self.send_response(404)
+                self._cors()
+                self.end_headers()
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length) if length else b''
+            try:
+                msg = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self._cors()
+                self.end_headers()
+                return
+
+            if msg.get('type') == 'SEND_DMX':
+                data = msg.get('data', [])
+                if isinstance(data, list) and len(data) > 0:
+                    for i, val in enumerate(data[:512]):
+                        dmx_server.dmx_data[i] = int(val)
+                    asyncio.run_coroutine_threadsafe(dmx_server.broadcast_dmx(), loop)
+
+            self.send_response(204)
+            self._cors()
+            self.end_headers()
+
+    httpd = ThreadingHTTPServer(('0.0.0.0', port), DMXHTTPHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    print(f"HTTP DMX endpoint on          http://0.0.0.0:{port}/dmx")
+
+
 def serve_frontend(port=5173):
     # Only used in the packaged .exe, which bundles the built frontend
     # alongside the interpreter (see the PyInstaller --add-data step in CI).
@@ -214,6 +269,8 @@ async def main():
         print(f"Failed to bind sACN port: {e}")
 
     print("WebSocket server on           ws://0.0.0.0:8080")
+
+    serve_http_dmx(dmx_server, loop)
 
     if getattr(sys, "frozen", False):
         serve_frontend()
