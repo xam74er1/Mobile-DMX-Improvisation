@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer'
 import type { IDMXClient, DiscoveredArtNetNode } from './types'
+import { useDebugLogStore, summarizeChannels, hexDump } from './debugLog'
 
 // react-native-udp is only available on native (not web).
 // The factory in index.ts ensures this class is never instantiated on web.
@@ -61,10 +62,19 @@ export class ArtNetClient implements IDMXClient {
   private rawSend(host: string, port: number, universe: number, channels: Uint8Array): Promise<void> {
     this.sequence = this.sequence >= 255 ? 1 : this.sequence + 1
     const packet = buildArtNetPacket(universe, channels, this.sequence)
+    const summary = summarizeChannels(channels)
+    const startedAt = Date.now()
 
     return new Promise<void>((resolve) => {
       this.socket!.send(packet, 0, packet.length, port, host, (err: Error | null) => {
         if (err) console.warn('[ArtNet] send error:', err.message)
+        useDebugLogStore.getState().log({
+          transport: 'udp', host, port, universe, summary,
+          ok: !err, error: err?.message,
+          raw: hexDump(packet),
+          byteLength: packet.length,
+          durationMs: Date.now() - startedAt,
+        })
         resolve()
       })
     })

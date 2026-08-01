@@ -1,5 +1,6 @@
 import type { IDMXClient } from './types'
 import { useSettingsStore } from '../store/settingsStore'
+import { useDebugLogStore, summarizeChannels } from './debugLog'
 
 /**
  * WS/HTTP DMX client: sends DMX universe snapshots to the desktop
@@ -33,18 +34,45 @@ export class WebDMXClient implements IDMXClient {
     universe: number,
     channels: Uint8Array,
   ): Promise<void> {
-    const url = `http://${host}:${port}/dmx`
+    // No path is forced by default — a bare host:port lets you probe any
+    // arbitrary IP/port with a plain POST. The desktop visualizer bridge
+    // (dmx-visualizer/server/server.py) specifically requires POST /dmx,
+    // so set Settings → Connection → HTTP Path to "/dmx" when targeting it.
+    const rawPath = useSettingsStore.getState().httpPath.trim()
+    const path = rawPath && !rawPath.startsWith('/') ? `/${rawPath}` : rawPath
+    const url = `http://${host}:${port}${path}`
+    const summary = summarizeChannels(channels)
+    const body = JSON.stringify({ type: 'SEND_DMX', universe, data: Array.from(channels) })
+    const startedAt = Date.now()
+
     let res: Response
     try {
       res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'SEND_DMX', universe, data: Array.from(channels) }),
+        body,
       })
-    } catch (e) {
-      throw new Error(`Cannot reach DMX server at ${url}`)
+    } catch {
+      const msg = `Cannot reach DMX server at ${url}`
+      useDebugLogStore.getState().log({
+        transport: 'http', host, port, universe, summary, ok: false, error: msg,
+        raw: body, byteLength: body.length, durationMs: Date.now() - startedAt,
+      })
+      throw new Error(msg)
     }
-    if (!res.ok) throw new Error(`DMX server at ${url} responded ${res.status}`)
+
+    if (!res.ok) {
+      const msg = `DMX server at ${url} responded ${res.status}`
+      useDebugLogStore.getState().log({
+        transport: 'http', host, port, universe, summary, ok: false, error: msg,
+        raw: body, byteLength: body.length, durationMs: Date.now() - startedAt,
+      })
+      throw new Error(msg)
+    }
+    useDebugLogStore.getState().log({
+      transport: 'http', host, port, universe, summary, ok: true,
+      raw: body, byteLength: body.length, durationMs: Date.now() - startedAt,
+    })
   }
 
   private connectWs(host: string, port: number): WebSocket {
@@ -79,28 +107,40 @@ export class WebDMXClient implements IDMXClient {
     channels: Uint8Array,
   ): Promise<void> {
     const ws = this.connectWs(host, port)
+    const summary = summarizeChannels(channels)
     const msg = JSON.stringify({
       type: 'SEND_DMX',
       universe,
       data: Array.from(channels),
     })
+    const startedAt = Date.now()
+    const logBase = { transport: 'ws' as const, host, port, universe, summary, raw: msg, byteLength: msg.length }
 
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(msg)
+      useDebugLogStore.getState().log({ ...logBase, ok: true, durationMs: Date.now() - startedAt })
       return
     }
 
     if (ws.readyState === WebSocket.CONNECTING) {
-      await new Promise<void>((resolve, reject) => {
-        ws.addEventListener('open', () => { ws.send(msg); resolve() }, { once: true })
-        ws.addEventListener('error', () =>
-          reject(new Error(`Cannot reach DMX server at ${this.currentWsUrl}`)),
-        { once: true })
-      })
+      try {
+        await new Promise<void>((resolve, reject) => {
+          ws.addEventListener('open', () => { ws.send(msg); resolve() }, { once: true })
+          ws.addEventListener('error', () =>
+            reject(new Error(`Cannot reach DMX server at ${this.currentWsUrl}`)),
+          { once: true })
+        })
+        useDebugLogStore.getState().log({ ...logBase, ok: true, durationMs: Date.now() - startedAt })
+      } catch (e) {
+        useDebugLogStore.getState().log({ ...logBase, ok: false, error: (e as Error).message, durationMs: Date.now() - startedAt })
+        throw e
+      }
       return
     }
 
-    throw new Error(`DMX server connection closed (${this.currentWsUrl})`)
+    const msgErr = `DMX server connection closed (${this.currentWsUrl})`
+    useDebugLogStore.getState().log({ ...logBase, ok: false, error: msgErr, durationMs: Date.now() - startedAt })
+    throw new Error(msgErr)
   }
 
   dispose(): void {

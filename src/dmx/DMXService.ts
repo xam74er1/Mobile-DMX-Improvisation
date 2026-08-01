@@ -49,6 +49,11 @@ export class DMXService {
     await this.client.sendUniverse(host, port, universeIndex, this.universe)
   }
 
+  /** Sends a raw 512-channel buffer directly, bypassing fixture-address mapping — used by diagnostic tools like the address sweep. */
+  async sendRaw(host: string, port: number, universeIndex: number, channels: Uint8Array): Promise<void> {
+    await this.client.sendUniverse(host, port, universeIndex, channels)
+  }
+
   private writeFixture(fixture: FixtureConfig, state: FixtureState, masterRatio: number = 1) {
     const addr = fixture.dmxAddress - 1  // convert to 0-indexed
     if (addr < 0 || addr >= 512) return
