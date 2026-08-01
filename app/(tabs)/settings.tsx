@@ -18,6 +18,12 @@ import {
   DEFAULT_AMBIANCE_IDS, DEFAULT_CATEGORY_IDS,
 } from '../../src/store/ambiancesStore'
 import { dmxService, type DiscoveredArtNetNode } from '../../src/dmx'
+import { runAddressSweep, type SweepProgress } from '../../src/dmx/addressSweep'
+import { useDebugLogStore, formatLogForExport } from '../../src/dmx/debugLog'
+import { getNetworkSnapshot, type NetworkSnapshot } from '../../src/utils/networkInfo'
+import * as Clipboard from 'expo-clipboard'
+import { File, Paths } from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 import { CHANNEL_MODE_OPTIONS, CHANNEL_MODE_CONFIGS, type ChannelMode } from '../../src/constants/channelModes'
 import { DEFAULT_COLORS } from '../../src/constants/defaultColors'
 import {
@@ -78,15 +84,18 @@ function ConnectionTab() {
   const universe = useSettingsStore((s) => s.universe)
   const masterIntensity = useSettingsStore((s) => s.masterIntensity)
   const transport = useSettingsStore((s) => s.transport)
+  const httpPath = useSettingsStore((s) => s.httpPath)
   const setReceiverIp = useSettingsStore((s) => s.setReceiverIp)
   const setReceiverPort = useSettingsStore((s) => s.setReceiverPort)
   const setUniverse = useSettingsStore((s) => s.setUniverse)
   const setTransport = useSettingsStore((s) => s.setTransport)
+  const setHttpPath = useSettingsStore((s) => s.setHttpPath)
   const lights = useLightsStore((s) => s.lights)
 
   const [ipInput, setIpInput] = useState(receiverIp)
   const [portInput, setPortInput] = useState(String(receiverPort))
   const [universeInput, setUniverseInput] = useState(String(universe))
+  const [httpPathInput, setHttpPathInput] = useState(httpPath)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<'none' | 'ok' | 'fail'>('none')
 
@@ -108,6 +117,27 @@ function ConnectionTab() {
     } finally {
       setScanning(false)
     }
+    // Many budget Art-Net-over-WiFi adapters (the Eurolite FreeDMX AP
+    // included) never send an ArtPollReply at all, so a scan finding zero
+    // nodes doesn't mean nothing is out there. Right after the ArtPoll,
+    // also blast every one of the 512 channels to full at the currently
+    // configured host/port — a fixture that's actually listening lights up
+    // white regardless of its address or channel mode, giving a physical
+    // "yes, something received that" signal independent of ArtPollReply.
+    try {
+      const FULL = new Uint8Array(512).fill(255)
+      const OFF = new Uint8Array(512)
+      await dmxService.sendRaw(receiverIp, receiverPort, universe, FULL)
+      await delay(600)
+      await dmxService.sendRaw(receiverIp, receiverPort, universe, OFF)
+      await delay(300)
+      await dmxService.sendRaw(receiverIp, receiverPort, universe, FULL)
+      await delay(600)
+      await dmxService.sendRaw(receiverIp, receiverPort, universe, OFF)
+    } catch {
+      // Best-effort — a send failure here shouldn't block the scan UI;
+      // Test Connection already surfaces send errors on its own button.
+    }
   }
 
   function commitIp() { setReceiverIp(ipInput.trim() || receiverIp) }
@@ -121,6 +151,7 @@ function ConnectionTab() {
     if (n >= 0 && n <= 255) setUniverse(n)
     else setUniverseInput(String(universe))
   }
+  function commitHttpPath() { setHttpPath(httpPathInput.trim()) }
 
   async function testConnection() {
     setTesting(true)
@@ -210,14 +241,19 @@ function ConnectionTab() {
             }
           }}
           buttons={[
-            ...(Platform.OS !== 'web' ? [{ value: 'udp', label: t('settings.connection.transportUdp') }] : []),
+            ...(Platform.OS !== 'web' ? [
+              { value: 'udp', label: t('settings.connection.transportUdp') },
+              { value: 'freedmx', label: t('settings.connection.transportFreeDmx') },
+            ] : []),
             { value: 'ws', label: t('settings.connection.transportWs') },
             { value: 'http', label: t('settings.connection.transportHttp') },
           ]}
           style={styles.input}
         />
         <Text style={styles.hint}>
-          {transport === 'udp' ? t('settings.connection.transportHintUdp') : t('settings.connection.transportHintBridge')}
+          {transport === 'udp' ? t('settings.connection.transportHintUdp')
+            : transport === 'freedmx' ? t('settings.connection.transportHintFreeDmx')
+            : t('settings.connection.transportHintBridge')}
         </Text>
 
         <TextInput
@@ -240,6 +276,24 @@ function ConnectionTab() {
           style={styles.input}
           left={<TextInput.Icon icon="layers" />}
         />
+
+        {transport === 'http' && (
+          <>
+            <TextInput
+              label={t('settings.connection.httpPathLabel')}
+              value={httpPathInput}
+              onChangeText={setHttpPathInput}
+              onBlur={commitHttpPath}
+              placeholder="/dmx"
+              autoCapitalize="none"
+              autoCorrect={false}
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="slash-forward" />}
+            />
+            <Text style={styles.hint}>{t('settings.connection.httpPathHint')}</Text>
+          </>
+        )}
 
         {testResult === 'ok' && (
           <Text style={styles.successMsg}>{t('settings.connection.successMsg')}</Text>
@@ -306,7 +360,326 @@ function ConnectionTab() {
           </View>
         )}
       </View>
+
+      <NetworkStatusCard />
+      <AddressSweepCard host={receiverIp} universe={universe} defaultPort={receiverPort} />
+      <DebugConsoleCard />
     </ScrollView>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NETWORK STATUS — the phone's actual current connection type/IP, mainly to
+// catch Android silently routing this app's traffic over mobile data instead
+// of a joined WiFi network that has no internet (a common, invisible-from-
+// Settings cause of "nothing responds" with the FreeDMX AP).
+// ─────────────────────────────────────────────────────────────────────────────
+function NetworkStatusCard() {
+  const { t } = useTranslation()
+  const [snapshot, setSnapshot] = useState<NetworkSnapshot | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function refresh() {
+    setLoading(true)
+    try {
+      setSnapshot(await getNetworkSnapshot())
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => { refresh() }, [])
+
+  const isCellular = snapshot?.type === 'CELLULAR'
+
+  return (
+    <>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.connection.netStatusTitle')}</Text>
+      <View style={styles.card}>
+        {snapshot && (
+          <>
+            <View style={styles.netRow}>
+              <Text style={styles.netRowLabel}>{t('settings.connection.netType')}</Text>
+              <Text style={[styles.netRowValue, isCellular && styles.netRowValueWarn]}>{snapshot.type}</Text>
+            </View>
+            <View style={styles.netRow}>
+              <Text style={styles.netRowLabel}>{t('settings.connection.netIp')}</Text>
+              <Text style={styles.netRowValue}>{snapshot.ipAddress ?? '—'}</Text>
+            </View>
+            <View style={styles.netRow}>
+              <Text style={styles.netRowLabel}>{t('settings.connection.netInternet')}</Text>
+              <Text style={styles.netRowValue}>
+                {snapshot.isInternetReachable === null ? '—' : snapshot.isInternetReachable ? t('common.yes') : t('common.no')}
+              </Text>
+            </View>
+            {isCellular && (
+              <Text style={styles.errorMsg}>{t('settings.connection.netCellularWarning')}</Text>
+            )}
+          </>
+        )}
+        <Button mode="outlined" onPress={refresh} loading={loading} icon="refresh" style={styles.dataBtnOutline} contentStyle={styles.testBtnContent}>
+          {t('settings.connection.netRefresh')}
+        </Button>
+      </View>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADDRESS/PORT SWEEP — brute-force blink test across ports and DMX addresses,
+// for finding a fixture when you can't tell from the app alone which of a few
+// candidate ports it's listening on, or what address it's set to.
+// ─────────────────────────────────────────────────────────────────────────────
+function AddressSweepCard({ host, universe, defaultPort }: { host: string; universe: number; defaultPort: number }) {
+  const { t } = useTranslation()
+  const [ports, setPorts] = useState<number[]>(() => Array.from(new Set([defaultPort, 10100, 6454])))
+  const [portInput, setPortInput] = useState('')
+  const [startAddr, setStartAddr] = useState('1')
+  const [endAddr, setEndAddr] = useState('512')
+  const [windowSize, setWindowSize] = useState('12')
+  const [onMs, setOnMs] = useState('350')
+  const [offMs, setOffMs] = useState('150')
+  const [running, setRunning] = useState(false)
+  const [progress, setProgress] = useState<SweepProgress | null>(null)
+  const stopRef = useRef(false)
+
+  function addPort() {
+    const n = parseInt(portInput, 10)
+    if (n > 0 && n < 65536 && !ports.includes(n)) setPorts((p) => [...p, n])
+    setPortInput('')
+  }
+  function removePort(p: number) {
+    setPorts((prev) => prev.filter((x) => x !== p))
+  }
+
+  async function start() {
+    if (ports.length === 0) return
+    const s = Math.max(1, Math.min(512, parseInt(startAddr, 10) || 1))
+    const e = Math.max(s, Math.min(512, parseInt(endAddr, 10) || 512))
+    const window = Math.max(1, Math.min(512, parseInt(windowSize, 10) || 12))
+    const on = Math.max(20, parseInt(onMs, 10) || 350)
+    const off = Math.max(0, parseInt(offMs, 10) || 150)
+    stopRef.current = false
+    setRunning(true)
+    setProgress(null)
+    try {
+      await runAddressSweep({
+        host, universe, ports,
+        startAddress: s, endAddress: e,
+        windowSize: window, onDurationMs: on, offDurationMs: off,
+        onProgress: setProgress,
+        shouldStop: () => stopRef.current,
+      })
+    } finally {
+      setRunning(false)
+      setProgress(null)
+    }
+  }
+
+  function stop() {
+    stopRef.current = true
+  }
+
+  return (
+    <>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.connection.sweepTitle')}</Text>
+      <View style={styles.card}>
+        <Text style={styles.hint}>{t('settings.connection.sweepHint')}</Text>
+
+        <Text style={styles.dialogLabel}>{t('settings.connection.sweepPortsLabel')}</Text>
+        <View style={styles.presetRow}>
+          {ports.map((p) => (
+            <Pressable key={p} style={styles.presetChip} onPress={() => removePort(p)} disabled={running}>
+              <Text style={styles.presetChipLabel}>{p}</Text>
+              <Text style={styles.presetChipSub}>{t('settings.connection.sweepRemovePort')}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.sweepAddPortRow}>
+          <TextInput
+            label={t('settings.connection.sweepAddPortLabel')}
+            value={portInput}
+            onChangeText={setPortInput}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepPortInput}
+            disabled={running}
+          />
+          <Button mode="outlined" onPress={addPort} disabled={running || !portInput}>
+            {t('common.add')}
+          </Button>
+        </View>
+
+        <View style={styles.sweepRangeRow}>
+          <TextInput
+            label={t('settings.connection.sweepStartLabel')}
+            value={startAddr}
+            onChangeText={setStartAddr}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepRangeInput}
+            disabled={running}
+          />
+          <TextInput
+            label={t('settings.connection.sweepEndLabel')}
+            value={endAddr}
+            onChangeText={setEndAddr}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepRangeInput}
+            disabled={running}
+          />
+        </View>
+
+        <Text style={styles.dialogLabel}>{t('settings.connection.sweepAdvancedLabel')}</Text>
+        <View style={styles.sweepRangeRow}>
+          <TextInput
+            label={t('settings.connection.sweepWindowLabel')}
+            value={windowSize}
+            onChangeText={setWindowSize}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepRangeInput}
+            disabled={running}
+          />
+          <TextInput
+            label={t('settings.connection.sweepOnMsLabel')}
+            value={onMs}
+            onChangeText={setOnMs}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepRangeInput}
+            disabled={running}
+          />
+          <TextInput
+            label={t('settings.connection.sweepOffMsLabel')}
+            value={offMs}
+            onChangeText={setOffMs}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.sweepRangeInput}
+            disabled={running}
+          />
+        </View>
+
+        {progress && (
+          <Text style={styles.successMsg}>
+            {t('settings.connection.sweepProgress', {
+              port: progress.port,
+              portIndex: progress.portIndex + 1,
+              portCount: progress.portCount,
+              address: progress.address,
+            })}
+          </Text>
+        )}
+
+        {running ? (
+          <Button mode="contained" onPress={stop} icon="stop" style={styles.testBtn} contentStyle={styles.testBtnContent}>
+            {t('settings.connection.sweepStop')}
+          </Button>
+        ) : (
+          <Button
+            mode="contained" onPress={start} icon="magnify-scan"
+            disabled={ports.length === 0}
+            style={styles.testBtn} contentStyle={styles.testBtnContent}
+          >
+            {t('settings.connection.sweepStart')}
+          </Button>
+        )}
+      </View>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEBUG CONSOLE — every DMX packet actually sent (transport/host/port/
+// universe/channels), for confirming exactly what the app is trying to send
+// when a fixture doesn't respond.
+// ─────────────────────────────────────────────────────────────────────────────
+function DebugConsoleCard() {
+  const { t } = useTranslation()
+  const entries = useDebugLogStore((s) => s.entries)
+  const paused = useDebugLogStore((s) => s.paused)
+  const setPaused = useDebugLogStore((s) => s.setPaused)
+  const clear = useDebugLogStore((s) => s.clear)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function copyLog() {
+    setBusy(true)
+    try {
+      await Clipboard.setStringAsync(formatLogForExport(entries))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function exportLog() {
+    setBusy(true)
+    try {
+      const text = formatLogForExport(entries)
+      const filename = `dmx-debug-log-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`
+      const file = new File(Paths.cache, filename)
+      if (file.exists) file.delete()
+      file.create()
+      file.write(text)
+      await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: 'Share debug log' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.connection.debugTitle')}</Text>
+      <View style={styles.card}>
+        <Text style={styles.hint}>{t('settings.connection.debugHint')}</Text>
+        <View style={styles.debugToolbar}>
+          <Button mode="outlined" compact onPress={() => setPaused(!paused)} icon={paused ? 'play' : 'pause'}>
+            {paused ? t('settings.connection.debugResume') : t('settings.connection.debugPause')}
+          </Button>
+          <Button mode="outlined" compact onPress={clear} icon="delete-outline">
+            {t('settings.connection.debugClear')}
+          </Button>
+          <Button mode="outlined" compact onPress={copyLog} disabled={busy || entries.length === 0} icon="content-copy">
+            {t('settings.connection.debugCopy')}
+          </Button>
+          <Button mode="outlined" compact onPress={exportLog} disabled={busy || entries.length === 0} icon="share">
+            {t('settings.connection.debugExport')}
+          </Button>
+        </View>
+
+        {entries.length === 0 && (
+          <Text style={styles.hint}>{t('settings.connection.debugEmpty')}</Text>
+        )}
+
+        <View style={styles.debugLogList}>
+          {entries.slice(0, 40).map((e) => {
+            const isOpen = expandedId === e.id
+            return (
+              <Pressable key={e.id} style={styles.debugLogRow} onPress={() => setExpandedId(isOpen ? null : e.id)}>
+                <Text style={[styles.debugLogStatus, e.ok ? styles.debugLogOk : styles.debugLogFail]}>
+                  {e.ok ? '✓' : '✗'}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.debugLogHeader}>
+                    {new Date(e.time).toLocaleTimeString()} · {e.transport.toUpperCase()} · {e.host}:{e.port} · U{e.universe}
+                    {e.byteLength != null ? ` · ${e.byteLength}B` : ''}
+                    {e.durationMs != null ? ` · ${e.durationMs}ms` : ''}
+                  </Text>
+                  <Text style={styles.debugLogBody}>{e.error ?? e.summary}</Text>
+                  {isOpen && e.raw && (
+                    <ScrollView horizontal style={styles.debugLogRawBox}>
+                      <Text style={styles.debugLogRaw}>{e.raw}</Text>
+                    </ScrollView>
+                  )}
+                </View>
+              </Pressable>
+            )
+          })}
+        </View>
+      </View>
+    </>
   )
 }
 
@@ -1375,4 +1748,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10,
     backgroundColor: '#1a1a1a',
   },
+
+  // ── Address/port sweep ──
+  sweepAddPortRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  sweepPortInput: { flex: 1, backgroundColor: 'transparent' },
+  sweepRangeRow: { flexDirection: 'row', gap: 8 },
+  sweepRangeInput: { flex: 1, backgroundColor: 'transparent' },
+
+  // ── Debug console ──
+  debugToolbar: { flexDirection: 'row', gap: 8 },
+  debugLogList: { gap: 6 },
+  debugLogRow: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: '#1a1a1a', borderRadius: 8, padding: 8,
+  },
+  debugLogStatus: { fontSize: 13, fontWeight: '700', marginTop: 1 },
+  debugLogOk: { color: '#2ecc71' },
+  debugLogFail: { color: '#e74c3c' },
+  debugLogHeader: { fontSize: 11, color: '#888', marginBottom: 2 },
+  debugLogBody: { fontSize: 11, color: '#ccc', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  debugLogRawBox: { marginTop: 6, maxHeight: 160, backgroundColor: '#0d0d0d', borderRadius: 6, padding: 6 },
+  debugLogRaw: { fontSize: 10, color: '#7fdc7f', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+
+  // ── Network status ──
+  netRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  netRowLabel: { fontSize: 13, color: '#888' },
+  netRowValue: { fontSize: 13, color: '#fff', fontWeight: '600' },
+  netRowValueWarn: { color: '#e74c3c' },
 })
