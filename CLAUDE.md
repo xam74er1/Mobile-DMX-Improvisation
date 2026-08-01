@@ -34,7 +34,7 @@ src/
   store/
     lightsStore.ts       # Fixture list: name, DMX address, channel mode, position
     ambiancesStore.ts    # Scenes ("ambiances"): per-light color/intensity + effects
-    settingsStore.ts     # Network config: IP, port, universe, master intensity, web transport (WS/HTTP)
+    settingsStore.ts     # Network config: IP, port, universe, master intensity, transport (UDP/freeDMX-native/WS/HTTP)
     zonesStore.ts        # Named stage zones for the virtual scene view
 
   components/
@@ -67,7 +67,9 @@ interface IDMXClient {
 }
 ```
 
-**To swap the protocol** (e.g. Art-Net → sACN, or HTTP): implement `IDMXClient` in a new file, update `src/dmx/index.ts` factory. Nothing else changes. Two implementations exist today: `ArtNetClient` (native, real Art-Net UDP) and `WebDMXClient` (web — browsers can't send raw UDP, so it relays to the desktop visualizer's Python server instead, over either WebSocket or HTTP per `settingsStore.webTransport`; both `host` and `port` always come from Settings, never hardcoded — see `dmx-visualizer/server/server.py`'s `ws_server` on `8080` and `serve_http_dmx()` on `8081` for the bridge's own default ports, which must match whatever the app is configured to hit).
+**To swap the protocol** (e.g. Art-Net → sACN, or HTTP): implement `IDMXClient` in a new file, update `src/dmx/index.ts` factory. Nothing else changes. Three implementations exist today: `ArtNetClient` (native, real Art-Net UDP), `FreeDMXNativeClient` (native, the Eurolite freeDMX AP's own *original* proprietary protocol — the one its factory Light'J app actually speaks, reverse-engineered from a QLC+ plugin; a fallback for units whose firmware never implements the Art-Net side — see `docs/DMX_PACKET_PROTOCOL.md` §10.3), and `WebDMXClient` (web — browsers can't send raw UDP, so it relays to the desktop visualizer's Python server instead, over either WebSocket or HTTP per `settingsStore.transport`; both `host` and `port` always come from Settings, never hardcoded — see `dmx-visualizer/server/server.py`'s `ws_server` on `8080` and `serve_http_dmx()` on `8081` for the bridge's own default ports, which must match whatever the app is configured to hit). `MultiTransportClient` picks between all three per `settingsStore.transport` on every send.
+
+For a byte-level walkthrough of every wire packet (Art-Net UDP, the freeDMX-native UDP protocol, and the WS/HTTP TCP relay) — including a full trace from a Panel 2 color tap through every function call down to the actual bytes sent — see `docs/DMX_PACKET_PROTOCOL.md`.
 
 **Art-Net specifics:**
 - UDP port `6454` is the Art-Net *standard*, but **this app's native default is `10100`** — see below.
@@ -115,7 +117,7 @@ All state is **Zustand** stores with **AsyncStorage** persistence:
 |-------|----------|-----------|
 | `lightsStore` | Fixture configs (address, channel mode, position, max intensity) | Yes |
 | `ambiancesStore` | Scenes ("ambiances"): per-light color/intensity + attached effects, blackout flag | Yes |
-| `settingsStore` | Receiver IP/port, universe, master intensity, web transport (WS/HTTP) | Yes |
+| `settingsStore` | Receiver IP/port, universe, master intensity, transport (UDP/freeDMX-native/WS/HTTP) | Yes |
 | `zonesStore` | Named stage zones for the virtual scene preview | Yes |
 
 The effects engine (`src/effects/runner.ts`) is a singleton, not a Zustand store — it owns its own 50ms ticker and pushes frames straight to `DMXService`, independent of React render cycles.
@@ -138,7 +140,7 @@ The effects engine (`src/effects/runner.ts`) is a singleton, not a Zustand store
 - All changes send DMX live when that ambiance is active
 
 ### Panel 3 — Settings
-- **Connection tab**: receiver IP, port, Art-Net universe, test-connection blink, network discovery (ArtPoll scan), and (Web only) a WS/HTTP transport picker for reaching the desktop visualizer bridge
+- **Connection tab**: receiver IP, port, Art-Net universe, test-connection blink, network discovery (ArtPoll scan), and a transport picker — UDP/FreeDMX-Native on Android/iOS (raw sockets a browser can't open), WS/HTTP everywhere, for reaching the desktop visualizer bridge or (WS/HTTP on native) testing against it instead of real hardware
 - **Lights tab**: virtual stage preview, add/remove/configure fixtures (address, channel mode, rotation, beam width, default color, max intensity), **Bulk Setup** (apply one channel mode to every fixture at once; auto-renumber DMX addresses in list order, stepping each fixture by its own channel count), stage zones
 - **Backup tab**: export/import ambiances (JSON or Myriad SLS), factory reset
 
