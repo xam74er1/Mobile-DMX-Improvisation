@@ -109,7 +109,8 @@ From the manufacturer's manual:
 | Model | Eurolite freeDMX AP Wi-Fi Interface (No. 51860130) | manual p.1 |
 | Protocol | Art-Net (over WLAN) → converted to real DMX512 on the XLR OUT | manual p.3 |
 | Factory IP (Access-Point mode) | `192.168.4.1` | manual p.10/20 "Technical specifications" |
-| Factory UDP port | **`10100`** (its own **System → UDP-Port** field — *not* the Art-Net-standard `6454`) | manual p.8/18 "System" table |
+| Art-Net UDP port | **`6454`** — fixed by the Art-Net spec, not configurable on the device (its "Artnet" tab exposes Name/Net/Subnet/Universe only, never a port field, because of this) | Art-Net 4 spec; manual p.9/19 "Artnet" tab |
+| Factory UDP port (device's own proprietary protocol, separate from Art-Net) | **`10100`** — its own **System → UDP-Port** field; this is what the factory Light'J app and this app's Transport C (§7) use, unrelated to the Art-Net port above | manual p.8/18 "System" table |
 | WLAN standard | IEEE 802.11 b/g/n, 2.4 GHz, 11 channels | manual p.3, p.10/20 |
 | Range | 30 m indoors / 60 m outdoors | manual p.3 |
 | DMX output | 1 universe (512 channels) over a 3-pin XLR "DMX OUT" | manual p.10/20 |
@@ -125,8 +126,10 @@ Two config surfaces exist and are easy to conflate:
 One more thing worth knowing up front, covered in full in §11.3: this
 device's factory protocol — the one its own Light'J app speaks — is **not**
 Art-Net. The "Artnet" tab above is a documented, later-added alternative.
-Both protocols target the same IP and port; this app implements both
-(Transport A and Transport C) and lets you pick per Settings → Connection → Transport.
+Both protocols target the same IP but **different ports** (`6454` vs
+`10100` — see the table above); this app implements both (Transport A and
+Transport C) and lets you pick per Settings → Connection → Transport, with
+each transport defaulting to its own correct port automatically.
 
 ---
 
@@ -393,8 +396,10 @@ sequenceDiagram
 
 **File:** `src/dmx/ArtNetClient.ts`. Used when `settingsStore.transport === 'udp'`
 (the native-only default — `DEFAULT_TRANSPORT` in `settingsStore.ts:24`).
-Destination defaults to `192.168.4.1:10100` (`settingsStore.ts:25`, matching
-the FreeDMX AP's factory `UDP-Port`, **not** the Art-Net-standard `6454`).
+Destination defaults to `192.168.4.1:6454` (`settingsStore.ts:25` —
+`6454` is the Art-Net-standard port, fixed by spec; this is *not* the same
+as the FreeDMX AP's factory `UDP-Port` of `10100`, which belongs to the
+device's separate proprietary protocol used by Transport C, §7).
 
 ### 5.1 Socket setup
 
@@ -558,9 +563,11 @@ protocol, the one its factory Light'J app actually speaks, reverse-engineered
 from that app and documented by a QLC+ plugin (full research and sources in
 §11.3). It exists in this app as a **fallback**: some units' firmware never
 implements the Art-Net listener at all, only this original protocol. Same
-destination as Transport A by default — `192.168.4.1:10100`
-(`TRANSPORT_DEFAULT_PORT.freedmx`, `settingsStore.ts:25`) — since it's the
-same physical device and port, just a different byte format on the wire.
+destination IP as Transport A by default, but a **different port** —
+`192.168.4.1:10100` (`TRANSPORT_DEFAULT_PORT.freedmx`, `settingsStore.ts:25`,
+matching the device's own `General → UDP-Port` field) — since it's the same
+physical device but a genuinely different listener/protocol on the wire,
+not just a different byte format at the same port.
 
 ### 7.1 Handshake, and why there's no ack-waiting
 
