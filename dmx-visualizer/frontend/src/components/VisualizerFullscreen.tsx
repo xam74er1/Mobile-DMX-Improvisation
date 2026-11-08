@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDMXStore } from '../store/useDMXStore';
-import { parseDMX } from '../utils/dmxParse';
+import { resolveFixtureColor } from '../utils/dmxParse';
 
 export const VisualizerFullscreen: React.FC = () => {
   const { fixtures, universe } = useDMXStore();
@@ -9,7 +9,7 @@ export const VisualizerFullscreen: React.FC = () => {
     <div className="visualizer-fullscreen">
       <div className="fullscreen-grid">
         {fixtures.map((fixture) => {
-          const { finalR, finalG, finalB, raw } = parseDMX(fixture.mode, universe, fixture.address - 1);
+          const { finalR, finalG, finalB, raw } = resolveFixtureColor(fixture, universe);
 
           return (
             <div

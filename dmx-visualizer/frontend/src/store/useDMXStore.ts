@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
-import type { FixtureMode } from '../utils/dmxParse';
+import type { ChannelOffsets, FixtureMode } from '../utils/dmxParse';
 
-interface Fixture {
+export interface Fixture {
   id: string;
   name: string;
   address: number; // 1-512
@@ -13,6 +13,15 @@ interface Fixture {
   rotX?: number; // 3D rotation X
   rotY?: number; // 3D rotation Y
   rotZ?: number; // 3D rotation Z
+  // Present when this fixture was imported from a SmartLightShow .SLS_Fixture
+  // / .SLS_Scene file (see utils/slsImport.ts) — its real per-role channel
+  // offsets, used in place of `mode`'s fixed preset when rendering color
+  // (resolveFixtureColor in utils/dmxParse.ts). `mode` is kept as the closest
+  // preset so the fixture-list dropdown still shows something sensible if
+  // the user edits it by hand afterwards.
+  customOffsets?: ChannelOffsets;
+  sourceManufacturer?: string;
+  sourceModel?: string;
 }
 
 interface Actor {
@@ -30,6 +39,7 @@ interface DMXState {
   setUniverse: (data: number[]) => void;
   setConnected: (status: boolean) => void;
   addFixture: (fixture: Fixture) => void;
+  setFixtures: (fixtures: Fixture[]) => void;
   updateFixture: (id: string, updates: Partial<Fixture>) => void;
   updateFixturePosition: (id: string, x: number, y: number, z?: number) => void;
   updateFixtureRotation: (id: string, rotX: number, rotY: number, rotZ: number) => void;
@@ -53,6 +63,7 @@ export const useDMXStore = create<DMXState>((set) => ({
   setUniverse: (data) => set({ universe: data }),
   setConnected: (status) => set({ connected: status }),
   addFixture: (fixture) => set((state) => ({ fixtures: [...state.fixtures, fixture] })),
+  setFixtures: (fixtures) => set({ fixtures }),
   updateFixture: (id, updates) => set((state) => ({
     fixtures: state.fixtures.map(f => f.id === id ? { ...f, ...updates } : f)
   })),

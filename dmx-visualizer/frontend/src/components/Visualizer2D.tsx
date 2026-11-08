@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDMXStore } from '../store/useDMXStore';
-import { parseDMX } from '../utils/dmxParse';
+import { resolveFixtureColor } from '../utils/dmxParse';
 
 export const Visualizer2D: React.FC = () => {
   const { fixtures, universe } = useDMXStore();
@@ -9,7 +9,7 @@ export const Visualizer2D: React.FC = () => {
     <div className="visualizer-2d">
       <div className="grid">
         {fixtures.map((fixture) => {
-          const { finalR, finalG, finalB, raw } = parseDMX(fixture.mode, universe, fixture.address - 1);
+          const { finalR, finalG, finalB, raw } = resolveFixtureColor(fixture, universe);
 
           return (
             <div key={fixture.id} className="fixture-card">

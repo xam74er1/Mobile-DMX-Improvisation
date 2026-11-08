@@ -134,6 +134,11 @@ button:hover {
   color: #aaa;
 }
 
+.sidebar-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .add-btn {
   background: rgba(46, 213, 115, 0.1);
   color: #2ed573;
@@ -142,6 +147,16 @@ button:hover {
 
 .add-btn:hover {
   background: rgba(46, 213, 115, 0.2);
+}
+
+.import-status {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
 }
 
 .fixture-list {

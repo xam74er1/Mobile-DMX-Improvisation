@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, TransformControls, SpotLight } from '@react-three/drei';
 import * as THREE from 'three';
 import { useDMXStore } from '../store/useDMXStore';
-import { parseDMX } from '../utils/dmxParse';
+import { resolveFixtureColor } from '../utils/dmxParse';
 
 const Actor3D = ({ actor, onClick }: { actor: any, isSelected: boolean, onClick: () => void }) => {
   return (
@@ -37,7 +37,7 @@ const Fixture3D = ({ fixture, onClick }: { fixture: any, isSelected: boolean, on
   useFrame(() => {
     if (meshRef.current) {
       const universe = useDMXStore.getState().universe;
-      const { finalR: fr, finalG: fg, finalB: fb } = parseDMX(fixture.mode, universe, fixture.address - 1);
+      const { finalR: fr, finalG: fg, finalB: fb } = resolveFixtureColor(fixture, universe);
       const finalR = fr / 255;
       const finalG = fg / 255;
       const finalB = fb / 255;
