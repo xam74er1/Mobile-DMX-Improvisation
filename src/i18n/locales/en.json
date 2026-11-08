@@ -184,7 +184,7 @@
 
     "connection": {
       "sectionTitle": "DMX RECEIVER",
-      "defaultsHint": "Eurolite FreeDMX AP defaults: IP 192.168.4.1 · Port 10100 · Universe 0. If a unit's port was changed, check it at the device's own web config, http://192.168.4.1 → General.",
+      "defaultsHint": "Eurolite FreeDMX AP defaults: IP 192.168.4.1 · Universe 0. Port depends on Transport: 6454 for Art-Net (fixed, not changeable on the device), or 10100 for FreeDMX Native (the device's own General → UDP-Port, changeable — check it at http://192.168.4.1 → General if a unit was reconfigured).",
       "quickPreset": "Quick Preset",
       "presetShow": "Show",
       "presetLocal": "Local",
@@ -313,8 +313,12 @@
       "copyToClipboard": "Copy to Clipboard",
       "noCustomAmbiances": "No custom ambiances yet — create some in Panel 1.",
 
+      "hwConfigTitle": "Hardware Config (SmartLightShow)",
+      "hwConfigHint": "Exports the receiver IP/port as a file SmartLightShow (Myriad's official Eurolite companion app) can read, and vice versa — Import below also accepts this file (or pasted text) and auto-detects it.",
+      "hwConfigExport": "Export Hardware Config",
+
       "importTitle": "IMPORT",
-      "importHint": "Supports Myriad SLS (.SLS_AmbiancesDigest) and DMX Improvisator (.dmximp.json)",
+      "importHint": "Supports Myriad SLS (.SLS_AmbiancesDigest), DMX Improvisator (.dmximp.json), and SmartLightShow hardware config (auto-detected) to set IP/port/transport.",
       "importMode": "Import mode",
       "merge": "Merge",
       "mergeHint": "Add new items, keep existing",
@@ -388,7 +392,7 @@
             "Once connected to its network, open Settings → Connection and try the \"Show\" preset (192.168.4.1) — that's the receiver's factory IP, and it should already be selected by default. If lights don't respond, use Scan Network to try to detect it automatically (many low-cost Art-Net-over-WiFi receivers, including this one, don't answer scans at all — that's expected, not a bug).",
             "\"Local\" preset (127.0.0.1): only useful when testing the app in a browser on the same computer as the desktop visualizer (dmx-visualizer). On a real phone, 127.0.0.1 refers to the phone itself — it will never reach real fixtures.",
             "To rehearse without real fixtures: run the desktop visualizer on your computer, connect your phone to the same WiFi as that computer, then enter that computer's local network IP (shown by the visualizer, e.g. 192.168.1.42) — not the Local preset.",
-            "Port: the app defaults to 10100, the FreeDMX AP's own factory UDP port. If a unit's port was changed from factory, check it at the device's own web config (http://192.168.4.1 → General) and match it here. Art-Net Universe: 0 by default on both sides — must match on the receiver and in the app.",
+            "Port: depends on Transport. For \"UDP (Art-Net)\" the app defaults to 6454 — the fixed Art-Net standard port, not changeable on the device, so there's nothing to match here. For \"FreeDMX Native\" the app defaults to 10100, the FreeDMX AP's own factory UDP port (its web config's General → UDP-Port) — if a unit's port was changed from factory, check it there and match it here. Art-Net Universe: 0 by default on both sides — must match on the receiver and in the app (Art-Net transport only).",
             "Test Connection (Blink) sends two flashes to every configured light. If the app says \"sent\" but nothing blinks, the problem is on the receiver's side (wrong IP, wrong DMX mode, wrong address) — not the app.",
             "Scan Network broadcasts an ArtPoll and lists every Art-Net receiver that answers on the current WiFi — handy for finding the right IP without knowing it in advance. Not available on Web, only on the Android/iOS app.",
             "On Web (browser), no real DMX data is ever sent — that's expected; only the Android/iOS app drives real fixtures."

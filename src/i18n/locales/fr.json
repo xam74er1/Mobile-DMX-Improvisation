@@ -184,7 +184,7 @@
 
     "connection": {
       "sectionTitle": "RÉCEPTEUR DMX",
-      "defaultsHint": "Eurolite FreeDMX AP par défaut : IP 192.168.4.1 · Port 10100 · Universe 0. Si le port de votre appareil a été modifié, vérifiez-le dans sa propre configuration web, http://192.168.4.1 → Général.",
+      "defaultsHint": "Eurolite FreeDMX AP par défaut : IP 192.168.4.1 · Universe 0. Le port dépend du Transport : 6454 pour Art-Net (fixe, non modifiable sur l'appareil), ou 10100 pour FreeDMX Native (le champ Général → Port UDP de l'appareil, modifiable — vérifiez-le sur http://192.168.4.1 → Général si l'appareil a été reconfiguré).",
       "quickPreset": "Préréglage rapide",
       "presetShow": "Spectacle",
       "presetLocal": "Local",
@@ -313,8 +313,12 @@
       "copyToClipboard": "Copier dans le presse-papiers",
       "noCustomAmbiances": "Aucune ambiance personnalisée pour l'instant — créez-en dans le Panneau 1.",
 
+      "hwConfigTitle": "Config matériel (SmartLightShow)",
+      "hwConfigHint": "Exporte l'IP/port du récepteur dans un fichier que SmartLightShow (l'app compagnon officielle Eurolite de Myriad) peut lire, et inversement — la section Importer ci-dessous accepte aussi ce fichier (ou du texte collé) et le détecte automatiquement.",
+      "hwConfigExport": "Exporter le config matériel",
+
       "importTitle": "IMPORTER",
-      "importHint": "Prend en charge Myriad SLS (.SLS_AmbiancesDigest) et DMX Improvisator (.dmximp.json)",
+      "importHint": "Prend en charge Myriad SLS (.SLS_AmbiancesDigest), DMX Improvisator (.dmximp.json), et la config matériel SmartLightShow (détection automatique) pour régler IP/port/transport.",
       "importMode": "Mode d'import",
       "merge": "Fusionner",
       "mergeHint": "Ajouter les nouveaux éléments, garder l'existant",
@@ -388,7 +392,7 @@
             "Une fois connecté à son réseau, ouvrez Réglages → Connexion et essayez le préréglage « Spectacle » (192.168.4.1) — c'est l'IP d'usine du récepteur, déjà sélectionnée par défaut. Si les lumières ne répondent pas, utilisez Scanner le réseau pour essayer de le détecter automatiquement (beaucoup d'adaptateurs Art-Net WiFi bas de gamme, dont celui-ci, ne répondent jamais au scan — c'est normal, pas un bug).",
             "Préréglage « Local » (127.0.0.1) : uniquement utile quand vous testez l'app dans un navigateur sur le même ordinateur que le visualiseur de bureau (dmx-visualizer). Sur un vrai téléphone, 127.0.0.1 désigne le téléphone lui-même — ça ne fonctionnera jamais avec de vrais projecteurs.",
             "Pour répéter sans les vrais projecteurs : lancez le visualiseur de bureau sur votre ordinateur, connectez votre téléphone au même WiFi que cet ordinateur, puis entrez l'adresse IP locale de l'ordinateur (affichée par le visualiseur, ex. 192.168.1.42) — pas le préréglage Local.",
-            "Port : l'app utilise par défaut 10100, le port UDP d'usine du FreeDMX AP. Si le port d'un appareil a été modifié depuis l'usine, vérifiez-le dans sa propre configuration web (http://192.168.4.1 → Général) et faites-le correspondre ici. Universe Art-Net : 0 par défaut des deux côtés — doit être identique sur le récepteur et dans l'app.",
+            "Port : dépend du Transport. Pour « UDP (Art-Net) », l'app utilise par défaut 6454 — le port standard Art-Net, fixe, non modifiable sur l'appareil, donc rien à faire correspondre ici. Pour « FreeDMX Native », l'app utilise par défaut 10100, le port UDP d'usine du FreeDMX AP (son champ Général → Port UDP) — si le port d'un appareil a été modifié depuis l'usine, vérifiez-le là et faites-le correspondre ici. Universe Art-Net : 0 par défaut des deux côtés — doit être identique sur le récepteur et dans l'app (transport Art-Net uniquement).",
             "Tester la connexion (clignotement) envoie deux flashs à toutes les lumières configurées. Si l'app dit « envoyé » mais que rien ne clignote, le problème est côté récepteur (mauvaise IP, mauvais mode DMX, mauvaise adresse) — pas côté app.",
             "Scanner le réseau diffuse une requête ArtPoll et liste tout récepteur Art-Net qui répond sur le WiFi actuel — pratique pour trouver la bonne IP sans la connaître à l'avance. Non disponible sur le Web, seulement sur l'app Android/iOS.",
             "Sur le Web (navigateur), aucune donnée DMX réelle n'est envoyée — c'est normal, seule l'app Android/iOS pilote de vrais projecteurs."

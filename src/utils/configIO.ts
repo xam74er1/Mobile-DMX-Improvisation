@@ -4,7 +4,7 @@ import * as DocumentPicker from 'expo-document-picker'
 import * as Clipboard from 'expo-clipboard'
 import { useLightsStore, type Light } from '../store/lightsStore'
 import { useAmbiancesStore, type Ambiance, type AmbianceCategory } from '../store/ambiancesStore'
-import { useSettingsStore } from '../store/settingsStore'
+import { useSettingsStore, type Transport } from '../store/settingsStore'
 import type { ChannelMode } from '../constants/channelModes'
 
 // ── Export format ─────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ export async function copyToClipboard(config: AppConfig): Promise<void> {
   await Clipboard.setStringAsync(JSON.stringify(config, null, 2))
 }
 
-export type ImportedFile = { type: 'json' | 'sls'; content: string; name: string }
+export type ImportedFile = { type: 'json' | 'sls' | 'hwconfig'; content: string; name: string }
 
 export async function pickFile(): Promise<ImportedFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
@@ -200,7 +200,12 @@ export async function pickFile(): Promise<ImportedFile | null> {
   const name = asset.name ?? ''
   const lname = name.toLowerCase()
   const isSLS = lname.endsWith('.sls_ambiancesdigest') || lname.includes('sls_ambiance')
-  return { type: isSLS ? 'sls' : 'json', content, name }
+  // Content-sniffed rather than filename-sniffed: SmartLightShow's own export
+  // may be named e.g. "SmartLightsShowGeneralPreferences.txt", with no
+  // distinguishing extension — the interface* keys are the reliable signal.
+  const isHwConfig = !isSLS && looksLikeMyriadHardwareConfig(content)
+  const type: ImportedFile['type'] = isSLS ? 'sls' : isHwConfig ? 'hwconfig' : 'json'
+  return { type, content, name }
 }
 
 export async function pasteFromClipboard(): Promise<string> {
@@ -280,4 +285,138 @@ export async function exportSLSToFile(ambiances: Ambiance[], lights: Light[]): P
 
 export async function exportSLSToClipboard(ambiances: Ambiance[], lights: Light[]): Promise<void> {
   await Clipboard.setStringAsync(exportSLS(ambiances, lights))
+}
+
+// ── Myriad hardware/connection config (SmartLightShow "General hardware setting") ──
+//
+// SmartLightShow (Myriad's official companion app for the Eurolite FreeDMX
+// AP, confirmed by reverse-engineering SmartLightShow.exe) persists its own
+// network/interface config as a flat `Begin / key value / End` text block —
+// same serialization style as the sibling SmartAudioShow's own prefs file
+// (ACAMPREF/Myriad/SmartAudioShowGeneralPreferences.txt), which is the live
+// sample this format was confirmed against, since SmartLightShow's own prefs
+// file (SmartLightsShowGeneralPreferences.txt) hadn't been created yet on
+// the machine this was reverse-engineered on. The six keys below were read
+// directly out of SmartLightShow.exe's embedded strings, under a
+// "General hardware setting" heading:
+//
+//   interfaceType       popup-menu index, 0-based: 0 = Artnet, 1 = Open DMX USB,
+//                        2 = ENTTEC Pro (experimental) — order taken from the
+//                        preferences dialog's own option list. This app only has
+//                        a real equivalent for 0 (Artnet / this app's 'udp'
+//                        transport); the two USB modes have no mobile analogue.
+//   interfaceIpAddress  destination IP, quoted string — e.g. "192.168.4.1"
+//   interfacePortDMX    destination UDP port, bare integer — e.g. 6454
+//   interfaceName       free-text label for the interface, quoted string
+//   interfacePath       serial device path for USB modes, quoted string — not
+//                        applicable to Artnet, not used by this app
+//   interfaceFreq       DMX send rate in Hz, bare integer/float — informational
+//                        only here; this app's own send cadence is driven by UI
+//                        events plus a fixed 1 Hz keep-alive, not a configurable
+//                        rate, so this is preserved on round-trip but not acted on.
+//
+// NOTE: interfaceType's exact index mapping is inferred from this codebase's
+// own 0-based popup fields (curDevice, colorPickerMode in the .SLS_Scene
+// format) and the dialog's listed option order — it was not confirmed
+// against a live-captured SmartLightShow prefs file. If a real exported file
+// ever shows a different encoding, update INTERFACE_TYPE_ARTNET below.
+
+const INTERFACE_TYPE_ARTNET = 0
+
+export interface MyriadHardwareConfig {
+  interfaceType?: number
+  interfaceIpAddress?: string
+  interfacePortDMX?: number
+  interfaceName?: string
+  interfacePath?: string
+  interfaceFreq?: number
+}
+
+/** True if `text` looks like it contains a Myriad hardware/interface config block (anywhere — e.g. embedded in a full SmartLightsShowGeneralPreferences.txt). */
+export function looksLikeMyriadHardwareConfig(text: string): boolean {
+  return /\binterfaceIpAddress\b/.test(text) || /\binterfacePortDMX\b/.test(text)
+}
+
+/** Scans `text` line-by-line for the known interface keys — tolerant of being handed either a standalone snippet or a full preferences file with many unrelated keys. */
+export function parseMyriadHardwareConfig(text: string): MyriadHardwareConfig {
+  const result: MyriadHardwareConfig = {}
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    let m: RegExpMatchArray | null
+
+    if ((m = line.match(/^interfaceType\s+(\d+)/))) { result.interfaceType = parseInt(m[1], 10); continue }
+    if ((m = line.match(/^interfaceIpAddress\s+"([^"]*)"/))) { result.interfaceIpAddress = m[1]; continue }
+    if ((m = line.match(/^interfacePortDMX\s+(\d+)/))) { result.interfacePortDMX = parseInt(m[1], 10); continue }
+    if ((m = line.match(/^interfaceName\s+"([^"]*)"/))) { result.interfaceName = m[1]; continue }
+    if ((m = line.match(/^interfacePath\s+"([^"]*)"/))) { result.interfacePath = m[1]; continue }
+    if ((m = line.match(/^interfaceFreq\s+([\d.]+)/))) { result.interfaceFreq = parseFloat(m[1]); continue }
+  }
+  return result
+}
+
+export interface ApplyHardwareConfigResult {
+  appliedIp: boolean
+  appliedPort: boolean
+  appliedTransport: Transport | null
+  warnings: string[]
+}
+
+/** Applies a parsed Myriad hardware config onto this app's own settingsStore. */
+export function applyMyriadHardwareConfig(config: MyriadHardwareConfig): ApplyHardwareConfigResult {
+  const { setReceiverIp, setReceiverPort, setTransport } = useSettingsStore.getState()
+  const result: ApplyHardwareConfigResult = { appliedIp: false, appliedPort: false, appliedTransport: null, warnings: [] }
+
+  if (config.interfaceIpAddress) {
+    setReceiverIp(config.interfaceIpAddress)
+    result.appliedIp = true
+  }
+  if (typeof config.interfacePortDMX === 'number' && Number.isFinite(config.interfacePortDMX)) {
+    setReceiverPort(config.interfacePortDMX)
+    result.appliedPort = true
+  }
+  if (typeof config.interfaceType === 'number') {
+    if (config.interfaceType === INTERFACE_TYPE_ARTNET) {
+      setTransport('udp')
+      result.appliedTransport = 'udp'
+    } else {
+      result.warnings.push(
+        `interfaceType ${config.interfaceType} (USB-based) has no equivalent on mobile — transport left unchanged; only IP/port were applied.`,
+      )
+    }
+  }
+  return result
+}
+
+/** Builds a Myriad-style `Begin/End` hardware config block from this app's current connection settings. */
+export function buildMyriadHardwareConfigText(): string {
+  const { receiverIp, receiverPort } = useSettingsStore.getState()
+  const lines = [
+    '#***********************************************************************',
+    '#* Mobile DMX Improvisator -- hardware/connection config',
+    '#* Compatible with SmartLightShow (c) Myriad -- "General hardware setting"',
+    '#***********************************************************************',
+    'Begin ',
+    `interfaceType ${INTERFACE_TYPE_ARTNET} `,
+    `interfaceIpAddress "${receiverIp}" `,
+    `interfacePortDMX ${receiverPort} `,
+    'interfaceName "Mobile DMX Improvisator" ',
+    'interfacePath "" ',
+    'interfaceFreq 44 ',
+    'End ',
+  ]
+  return lines.join('\n')
+}
+
+export async function exportMyriadHardwareConfigToFile(): Promise<void> {
+  const text = buildMyriadHardwareConfigText()
+  const filename = `dmx-improvisator-hwconfig-${new Date().toISOString().slice(0, 10)}.txt`
+  const file = new File(Paths.cache, filename)
+  if (file.exists) file.delete()
+  file.create()
+  file.write(text)
+  await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: 'Save hardware config' })
+}
+
+export async function exportMyriadHardwareConfigToClipboard(): Promise<void> {
+  await Clipboard.setStringAsync(buildMyriadHardwareConfigText())
 }

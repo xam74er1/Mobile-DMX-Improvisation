@@ -30,6 +30,8 @@ import {
   buildConfig, applyConfig, parseConfig,
   exportToFile, copyToClipboard, pickFile, pasteFromClipboard,
   importSLS, exportSLSToFile, exportSLSToClipboard,
+  looksLikeMyriadHardwareConfig, parseMyriadHardwareConfig, applyMyriadHardwareConfig,
+  exportMyriadHardwareConfigToFile, exportMyriadHardwareConfigToClipboard,
 } from '../../src/utils/configIO'
 
 type Tab = 'connection' | 'lights' | 'data' | 'tutorial'
@@ -1176,6 +1178,26 @@ function DataTab() {
     } finally { setBusy(false) }
   }
 
+  async function handleExportHwConfigFile() {
+    setBusy(true); setStatus(null)
+    try {
+      await exportMyriadHardwareConfigToFile()
+      showOk('File shared — save it where you like.')
+    } catch (e: any) {
+      showErr(e?.message ?? 'Export failed')
+    } finally { setBusy(false) }
+  }
+
+  async function handleCopyHwConfigClipboard() {
+    setBusy(true); setStatus(null)
+    try {
+      await exportMyriadHardwareConfigToClipboard()
+      showOk('Copied to clipboard.')
+    } catch (e: any) {
+      showErr(e?.message ?? 'Copy failed')
+    } finally { setBusy(false) }
+  }
+
   async function handleImportFile() {
     setBusy(true); setStatus(null)
     try {
@@ -1183,6 +1205,8 @@ function DataTab() {
       if (!file) { setBusy(false); return }
       if (file.type === 'sls') {
         applySLSImport(file.content, file.name)
+      } else if (file.type === 'hwconfig') {
+        applyHwConfigImport(file.content)
       } else {
         applyJSONImport(file.content)
       }
@@ -1196,10 +1220,33 @@ function DataTab() {
     try {
       const text = await pasteFromClipboard()
       if (!text?.trim()) { showErr('Clipboard is empty.'); setBusy(false); return }
-      applyJSONImport(text)
+      if (looksLikeMyriadHardwareConfig(text)) {
+        applyHwConfigImport(text)
+      } else {
+        applyJSONImport(text)
+      }
     } catch (e: any) {
       showErr(e?.message ?? 'Paste failed')
     } finally { setBusy(false) }
+  }
+
+  function applyHwConfigImport(text: string) {
+    const parsed = parseMyriadHardwareConfig(text)
+    if (!parsed.interfaceIpAddress && !parsed.interfacePortDMX && typeof parsed.interfaceType !== 'number') {
+      showErr('No interfaceIpAddress/interfacePortDMX/interfaceType found in this file.')
+      return
+    }
+    const result = applyMyriadHardwareConfig(parsed)
+    const parts: string[] = []
+    if (result.appliedIp) parts.push(`IP ${parsed.interfaceIpAddress}`)
+    if (result.appliedPort) parts.push(`port ${parsed.interfacePortDMX}`)
+    if (result.appliedTransport) parts.push(`transport ${result.appliedTransport}`)
+    const msg = parts.length ? `Applied: ${parts.join(', ')}.` : 'Nothing applicable found.'
+    if (result.warnings.length) {
+      showErr(`${msg} ${result.warnings.join(' ')}`)
+    } else {
+      showOk(msg)
+    }
   }
 
   function applyJSONImport(text: string) {
@@ -1322,6 +1369,24 @@ function DataTab() {
             {t('settings.data.noCustomAmbiances')}
           </Text>
         )}
+      </View>
+
+      {/* ── HARDWARE CONFIG (SmartLightShow / Myriad compatible) ── */}
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('settings.data.hwConfigTitle')}</Text>
+      <Text style={styles.hint}>{t('settings.data.hwConfigHint')}</Text>
+      <View style={styles.card}>
+        <Button
+          icon="share" mode="contained" onPress={handleExportHwConfigFile} loading={busy}
+          disabled={busy} style={styles.dataBtn} contentStyle={styles.dataBtnContent}
+        >
+          {t('settings.data.hwConfigExport')}
+        </Button>
+        <Button
+          icon="content-copy" mode="outlined" onPress={handleCopyHwConfigClipboard} loading={busy}
+          disabled={busy} style={styles.dataBtnOutline} contentStyle={styles.dataBtnContent}
+        >
+          {t('settings.data.copyToClipboard')}
+        </Button>
       </View>
 
       {/* ── IMPORT ── */}
