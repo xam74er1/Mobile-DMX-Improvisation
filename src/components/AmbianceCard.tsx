@@ -33,7 +33,7 @@ export function AmbianceCard({ ambiance, isActive, onPress, onLongPress }: Props
           <MaterialIcons
             name={ambiance.icon as any}
             size={26}
-            color={previewColor}
+            color={isActive ? (isDark ? '#ffffff' : '#000000') : previewColor}
             style={styles.icon}
           />
         ) : (

@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react'
-import { ScrollView, StyleSheet, View, Alert, Pressable, Platform } from 'react-native'
+import React, { useState, useRef, useEffect } from 'react'
+import { ScrollView, StyleSheet, View, Alert, Pressable, Platform, Keyboard, useWindowDimensions } from 'react-native'
 import Slider from '../../src/components/AppSlider'
 import {
   Text, TextInput, Button, IconButton, Portal, Dialog,
@@ -748,6 +748,17 @@ function LightsTab() {
   // Stage shows: test mode colors > active ambiance colors > null (default colors from light config)
   const stageStates = testStates ?? activeAmbiance?.lightStates ?? null
 
+  // Keyboard height, so dialogs can shrink/shift above it (otherwise the
+  // action buttons are hidden behind the keyboard and can't be tapped).
+  const [kbHeight, setKbHeight] = useState(0)
+  const { height: winHeight } = useWindowDimensions()
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height))
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbHeight(0))
+    return () => { show.remove(); hide.remove() }
+  }, [])
+  const kbDialogStyle = { marginBottom: kbHeight, maxHeight: winHeight - kbHeight - 48 }
+
   // ── Light config dialog ────────────────────────────────────
   const [addDialog, setAddDialog] = useState(false)
   const [editDialog, setEditDialog] = useState<Light | null>(null)
@@ -983,9 +994,10 @@ function LightsTab() {
 
       {/* ── Add dialog ── */}
       <Portal>
-        <Dialog visible={addDialog} onDismiss={() => setAddDialog(false)}>
+        <Dialog visible={addDialog} onDismiss={() => setAddDialog(false)} style={kbDialogStyle}>
           <Dialog.Title>{t('settings.lights.addLightTitle')}</Dialog.Title>
-          <Dialog.Content>
+          <Dialog.ScrollArea style={styles.addScrollArea}>
+            <ScrollView keyboardShouldPersistTaps="handled">
             <TextInput label={t('settings.lights.nameLabel')} value={newName} onChangeText={setNewName} mode="outlined" style={styles.dialogInput} autoFocus placeholder={`Light ${lights.length + 1}`} />
             <TextInput label={t('settings.lights.addressLabel')} value={newAddr} onChangeText={setNewAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
             <Text style={styles.dialogLabel}>{t('settings.lights.channelModeLabel')}</Text>
@@ -998,7 +1010,8 @@ function LightsTab() {
                 <Menu.Item key={opt.mode} title={opt.label} onPress={() => { setNewMode(opt.mode); setAddModeMenuVisible(false) }} />
               ))}
             </Menu>
-          </Dialog.Content>
+          </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setAddDialog(false)}>{t('common.cancel')}</Button>
             <Button onPress={confirmAdd}>{t('common.add')}</Button>
@@ -1008,10 +1021,10 @@ function LightsTab() {
 
       {/* ── Edit / configure dialog ── */}
       <Portal>
-        <Dialog visible={!!editDialog} onDismiss={() => setEditDialog(null)}>
+        <Dialog visible={!!editDialog} onDismiss={() => setEditDialog(null)} style={kbDialogStyle}>
           <Dialog.Title>{t('settings.lights.configureLightTitle')}</Dialog.Title>
           <Dialog.ScrollArea style={styles.editScrollArea}>
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               <TextInput label={t('settings.lights.nameLabel')} value={editName} onChangeText={setEditName} mode="outlined" style={styles.dialogInput} autoFocus />
               <TextInput label={t('settings.lights.addressLabel')} value={editAddr} onChangeText={setEditAddr} keyboardType="numeric" mode="outlined" style={styles.dialogInput} />
 
@@ -1712,6 +1725,7 @@ const styles = StyleSheet.create({
 
   bulkDivider: { height: 1, backgroundColor: '#262626', marginVertical: 16 },
   editScrollArea: { maxHeight: 420 },
+  addScrollArea: { flexShrink: 1 },
 
   // ── Tutorial tab ──
   langRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },

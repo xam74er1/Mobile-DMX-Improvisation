@@ -780,7 +780,7 @@ function DraggableRow({
 const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: '#0a0a0a' },
   scroll:         { flex: 1 },
-  content:        { paddingTop: 8 },
+  content:        { paddingTop: 8, paddingBottom: 96 },
   helpRow:        { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 8 },
   sectionHeader: {
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,

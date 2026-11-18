@@ -179,12 +179,14 @@ export default function EditorScreen() {
             const state = editingAmbiance?.lightStates[light.id] ?? defaultLightState()
             const tileColor = getStateColor(state)
             const isSelected = light.id === selectedLightId && !allLights
+            const tm = tileColor.match(/\d+/g)
+            const tileLight = !!tm && tm.length >= 3 && +tm[0] * 0.299 + +tm[1] * 0.587 + +tm[2] * 0.114 > 150
             return (
               <Pressable key={light.id}
                 onPress={() => { setSelectedLightId(light.id); setAllLights(false) }}
-                style={[styles.lightTile, { backgroundColor: tileColor }, isSelected && styles.lightTileSelected]}>
-                <View style={[styles.lightOnDot, { backgroundColor: state.isOn ? '#fff' : '#444' }]} />
-                <Text style={styles.lightTileName} numberOfLines={2}>{light.name}</Text>
+                style={[styles.lightTile, { backgroundColor: tileColor }, isSelected && styles.lightTileSelected, isSelected && tileLight && { borderColor: '#ff6b35' }]}>
+                <View style={[styles.lightOnDot, { backgroundColor: state.isOn ? (tileLight ? '#000' : '#fff') : '#444' }]} />
+                <Text style={[styles.lightTileName, tileLight && { color: '#000' }]} numberOfLines={2}>{light.name}</Text>
               </Pressable>
             )
           })}

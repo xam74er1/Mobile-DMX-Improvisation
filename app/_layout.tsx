@@ -3,6 +3,7 @@ import { Stack } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper'
 import { StatusBar } from 'expo-status-bar'
+import { useKeepAwake } from 'expo-keep-awake'
 import i18n from '../src/i18n'
 import { useSettingsStore } from '../src/store/settingsStore'
 
@@ -19,6 +20,9 @@ const theme = {
 }
 
 export default function RootLayout() {
+  // Keep the screen on while the app is open — sleep/lock would suspend UDP sends mid-show.
+  useKeepAwake()
+
   // AsyncStorage-backed settingsStore rehydrates asynchronously — this effect
   // both applies the persisted language once it loads and keeps i18n in sync
   // whenever the user switches language from Settings → Tutorial.

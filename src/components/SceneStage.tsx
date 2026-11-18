@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   },
   emptyMsg: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: 'rgba(255,255,255,0.12)', fontSize: 13 },
-  hint: { fontSize: 11, color: '#333', textAlign: 'center', marginTop: 6, marginBottom: 4 },
+  hint: { fontSize: 11, color: '#666', textAlign: 'center', marginTop: 6, marginBottom: 4 },
   zoneLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 1, opacity: 0.8 },
   badge: {
     alignSelf: 'center',

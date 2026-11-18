@@ -1,12 +1,58 @@
 # Mobile DMX Improvisator
 
+🇫🇷 [Version française](README.fr.md)
+
 A mobile app for controlling DMX lights in real time via the **Eurolite FreeDMX AP WiFi interface** (Art-Net over UDP).
 
 Works on **Android** (full DMX control), **iOS** (full DMX control), and **Web** (UI preview only — no UDP).
 
 ---
 
-## Prerequisites
+## What is it?
+
+**DMX Improvisator** turns your phone into a lighting console. Join the WiFi network of a Eurolite FreeDMX AP box, and you can control your DMX fixtures (LED pars, etc.) live: tap a scene ("ambiance") to light the room, fade in/out, trigger a strobe, or tweak colors on the fly. It is built for live shows — simple enough for a non-technical operator, flexible enough to configure every fixture.
+
+*(Français : l'app transforme votre téléphone en console lumière, via le boîtier WiFi Eurolite FreeDMX AP. Touchez une ambiance pour l'activer, réglez les couleurs en direct, lancez un stroboscope…)*
+
+### Screenshots
+
+| Control (show mode) | Light editor | Settings |
+|---|---|---|
+| ![Control panel](docs/screenshots/control.png) | ![Editor](docs/screenshots/editor.png) | ![Settings](docs/screenshots/settings.png) |
+
+### How to use it (quick version)
+
+1. Connect the phone to the `freeDMX_AP_xxxxxx` WiFi network.
+2. **Settings → Lights → Add**: create each fixture (name, DMX address, channel mode). The address and mode must match what is set on the fixture itself.
+3. **Settings → Connection → Test Connection (Blink)**: your lights should flash twice.
+4. **Editor**: pick an ambiance, pick a light (or *All Lights*), choose colors / intensity / effects.
+5. **Control**: tap an ambiance card to play it. **Blackout** kills everything in one tap. The **Master** slider caps overall brightness.
+
+The screen stays awake while the app is open, so the phone won't lock mid-show.
+
+---
+
+## Download & install the Android app (APK)
+
+No developer tools needed:
+
+1. On your Android phone, open the **[latest release](https://github.com/xam74er1/Mobile-DMX-Improvisation/releases/latest)** on GitHub.
+2. Under **Assets**, download the `.apk` file.
+3. Open the downloaded file. If Android blocks it, allow **"Install unknown apps"** for your browser / file manager when prompted (Settings → Apps → Special access → Install unknown apps).
+4. Tap **Install**, then open **DMX Improvisator**.
+5. Connect to the FreeDMX AP WiFi and follow the quick start above. If Android says the WiFi has no internet, choose to **stay connected**.
+
+Useful tutorials:
+- [Install apps from outside the Play Store (Android Help)](https://support.google.com/android/answer/12123624)
+- [How to sideload an APK on Android (Android Authority)](https://www.androidauthority.com/how-to-install-apks-31494/)
+- [Eurolite FreeDMX AP product page](https://www.steinigke.de/en/mpn51860200-eurolite-freedmx-ap-wireless-dmx-interface.html)
+- [Art-Net protocol overview](https://en.wikipedia.org/wiki/Art-Net)
+
+> iOS has no APK equivalent: build it yourself with `npx expo run:ios` (see below).
+
+---
+
+## Prerequisites (building from source)
 
 | Tool | Minimum Version | Download |
 |------|----------------|---------|
